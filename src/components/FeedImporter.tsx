@@ -7,7 +7,9 @@ interface Props {
   sources: FeedSource[];
 }
 
-const CHUNK = 200;
+const CHUNK = 100;
+const MAX_RETRIES = 4;
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const inputCls =
   'w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500';
 
@@ -83,15 +85,34 @@ export default function FeedImporter({ sources }: Props) {
     try {
       for (let i = 0; i < total; i += CHUNK) {
         const chunk = products.slice(i, i + CHUNK);
-        const res = await fetch('/api/products/import', {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ items: chunk, ensure: i === 0 }),
-        });
-        const data = (await res.json()) as { processed?: number; error?: string };
-        if (!res.ok) throw new Error(data.error || `Chunk ${i} a eșuat.`);
-        done += data.processed ?? chunk.length;
-        setProgress({ done, total });
+        let ok = false;
+        let lastErr = '';
+        for (let attempt = 0; attempt < MAX_RETRIES && !ok; attempt++) {
+          if (attempt > 0) await sleep(700 * 2 ** attempt); // backoff: 1.4s, 2.8s, 5.6s
+          try {
+            const res = await fetch('/api/products/import', {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ items: chunk, ensure: i === 0 }),
+            });
+            const text = await res.text();
+            let data: { processed?: number; error?: string };
+            try {
+              data = JSON.parse(text);
+            } catch {
+              // raspuns HTML (pagina de eroare) -> reincercabil
+              throw new Error(`Server ocupat (HTTP ${res.status})`);
+            }
+            if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+            done += data.processed ?? chunk.length;
+            setProgress({ done, total });
+            ok = true;
+          } catch (e) {
+            lastErr = (e as Error).message;
+          }
+        }
+        if (!ok) throw new Error(`${lastErr} (la produsul ${i}, după ${MAX_RETRIES} încercări)`);
+        await sleep(120); // mica pauza intre loturi, sa nu suprasolicitam D1
       }
       // inregistreaza sincronizarea
       if (url.trim()) {

@@ -6,7 +6,7 @@ import { json, badRequest } from '@/lib/http';
 
 export const prerender = false;
 
-const SUB_BATCH = 100;
+const SUB_BATCH = 50;
 
 /**
  * POST /api/products/import
