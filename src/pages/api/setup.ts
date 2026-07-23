@@ -21,7 +21,8 @@ const STATEMENTS: string[] = [
   `CREATE TABLE IF NOT EXISTS products (
     id INTEGER PRIMARY KEY AUTOINCREMENT, sku TEXT NOT NULL UNIQUE, name TEXT NOT NULL,
     description TEXT, category TEXT, unit TEXT NOT NULL DEFAULT 'buc',
-    price REAL NOT NULL DEFAULT 0, list_price REAL NOT NULL DEFAULT 0,
+    price REAL NOT NULL DEFAULT 0, price_a REAL NOT NULL DEFAULT 0,
+    price_b REAL NOT NULL DEFAULT 0, list_price REAL NOT NULL DEFAULT 0,
     vat_rate REAL NOT NULL DEFAULT 19, currency TEXT NOT NULL DEFAULT 'RON',
     stock_qty REAL NOT NULL DEFAULT 0, low_stock_threshold REAL NOT NULL DEFAULT 0,
     brand TEXT, barcode TEXT, images TEXT, files TEXT,
@@ -62,6 +63,8 @@ const STATEMENTS: string[] = [
 
   // ALTER-uri pentru baze create inainte de aceste coloane (esueaza inofensiv daca exista deja)
   `ALTER TABLE products ADD COLUMN list_price REAL NOT NULL DEFAULT 0`,
+  `ALTER TABLE products ADD COLUMN price_a REAL NOT NULL DEFAULT 0`,
+  `ALTER TABLE products ADD COLUMN price_b REAL NOT NULL DEFAULT 0`,
   `ALTER TABLE products ADD COLUMN brand TEXT`,
   `ALTER TABLE products ADD COLUMN barcode TEXT`,
   `ALTER TABLE products ADD COLUMN images TEXT`,

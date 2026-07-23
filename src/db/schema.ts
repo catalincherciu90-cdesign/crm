@@ -37,7 +37,9 @@ export const products = sqliteTable(
     description: text('description'),
     category: text('category'),
     unit: text('unit').notNull().default('buc'), // buc, kg, m, ora...
-    price: real('price').notNull().default(0), // pret unitar de vanzare, fara TVA
+    price: real('price').notNull().default(0), // pret unitar de vanzare (folosit in oferte), fara TVA
+    priceA: real('price_a').notNull().default(0), // PRET A din feed
+    priceB: real('price_b').notNull().default(0), // PRET B din feed
     listPrice: real('list_price').notNull().default(0), // pret de lista (referinta)
     vatRate: real('vat_rate').notNull().default(19), // % TVA implicit
     currency: text('currency').notNull().default('RON'),

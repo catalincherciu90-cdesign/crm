@@ -94,6 +94,8 @@ export function mapFeedProduct(p: FeedRaw, opts: MapOptions = {}): NewProduct {
     category: str(p.Category) || null,
     unit: 'buc',
     price,
+    priceA: num(p.PRET_A),
+    priceB: num(p.PRET_B),
     listPrice: num(p.PRET_LISTA),
     vatRate: opts.vatRate ?? 19,
     currency: 'RON',

@@ -1,61 +1,155 @@
 ---
 import { eq } from 'drizzle-orm';
 import Layout from '@/layouts/Layout.astro';
-import ProductForm from '@/components/ProductForm.astro';
 import { getDb } from '@/db';
 import { products } from '@/db/schema';
+import { formatMoney, formatQty } from '@/lib/money';
 
 export const prerender = false;
 
 const id = Number(Astro.params.id);
 const db = getDb(Astro.locals.runtime.env.DB);
-const [product] = await db.select().from(products).where(eq(products.id, id));
+const [p] = await db.select().from(products).where(eq(products.id, id));
+if (!p) return Astro.redirect('/products');
 
-if (!product) return Astro.redirect('/products');
-
-const images = product.images ? product.images.split('#').filter(Boolean) : [];
-const files = product.files ? product.files.split('#').filter(Boolean) : [];
+const images = p.images ? p.images.split('#').filter(Boolean) : [];
+const files = p.files ? p.files.split('#').filter(Boolean) : [];
 const fileName = (u: string) => decodeURIComponent(u.split('/').pop() || u);
+
+function stockState() {
+  if (p.stockQty <= 0) return { label: 'Epuizat', cls: 'bg-red-100 text-red-700' };
+  if (p.lowStockThreshold > 0 && p.stockQty <= p.lowStockThreshold)
+    return { label: 'Stoc scăzut', cls: 'bg-amber-100 text-amber-700' };
+  return { label: 'În stoc', cls: 'bg-green-100 text-green-700' };
+}
+const st = stockState();
+
+const prices = [
+  { label: 'Preț A', value: p.priceA },
+  { label: 'Preț B', value: p.priceB },
+  { label: 'Preț listă', value: p.listPrice },
+];
 ---
 
-<Layout title={`Editează ${product.name}`}>
-  <div class="mx-auto max-w-2xl">
-    <a href="/products" class="text-sm text-indigo-600 hover:underline">← Produse</a>
-    <h1 class="mt-2 mb-6 text-2xl font-bold text-slate-900">Editează produs</h1>
+<Layout title={p.name}>
+  <div class="mb-5 flex flex-wrap items-start justify-between gap-3">
+    <div>
+      <a href="/products" class="text-sm text-indigo-600 hover:underline">← Produse</a>
+      <h1 class="mt-2 text-2xl font-bold text-slate-900">{p.name}</h1>
+      <p class="mt-1 text-sm text-slate-500">
+        <span class="font-mono">{p.sku}</span>
+        {p.brand && <> · {p.brand}</>}
+        {p.category && <> · {p.category}</>}
+      </p>
+    </div>
+    <a href={`/products/${id}/edit`} class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">✏️ Editează</a>
+  </div>
 
-    {(images.length > 0 || files.length > 0) && (
-      <div class="mb-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-        {images.length > 0 && (
-          <div class="mb-4">
-            <h2 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Poze produs ({images.length})</h2>
-            <div class="flex flex-wrap gap-3">
-              {images.map((src) => (
-                <a href={src} target="_blank" rel="noopener">
-                  <img src={src} alt={product.name} loading="lazy" class="h-24 w-24 rounded-lg border border-slate-200 bg-white object-contain transition hover:border-indigo-400" />
-                </a>
+  <div class="grid gap-6 lg:grid-cols-2">
+    <!-- Galerie -->
+    <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      {images.length > 0 ? (
+        <div>
+          <div class="flex aspect-square w-full items-center justify-center overflow-hidden rounded-lg border border-slate-100 bg-white">
+            <img id="mainImg" src={images[0]} alt={p.name} class="max-h-full max-w-full object-contain" />
+          </div>
+          {images.length > 1 && (
+            <div class="mt-3 flex flex-wrap gap-2">
+              {images.map((src, i) => (
+                <button type="button" data-src={src} class={`thumb h-16 w-16 overflow-hidden rounded-md border bg-white p-1 transition ${i === 0 ? 'border-indigo-400' : 'border-slate-200 hover:border-indigo-300'}`}>
+                  <img src={src} alt={`${p.name} ${i + 1}`} loading="lazy" class="h-full w-full object-contain" />
+                </button>
               ))}
             </div>
-          </div>
-        )}
-        {files.length > 0 && (
-          <div>
-            <h2 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Fișe tehnice ({files.length})</h2>
-            <ul class="space-y-1">
-              {files.map((href) => (
-                <li>
-                  <a href={href} target="_blank" rel="noopener" class="inline-flex items-center gap-2 text-sm text-indigo-600 hover:underline">
-                    📄 {fileName(href)}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </div>
-    )}
+          )}
+        </div>
+      ) : (
+        <div class="flex aspect-square w-full items-center justify-center rounded-lg border border-dashed border-slate-200 bg-slate-50 text-5xl text-slate-300">📦</div>
+      )}
+    </section>
 
-    <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-      <ProductForm product={product} />
+    <!-- Info -->
+    <div class="space-y-6">
+      <!-- Preturi -->
+      <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <h2 class="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Prețuri (fără TVA)</h2>
+        <div class="grid grid-cols-3 gap-3">
+          {prices.map((pr) => (
+            <div class="rounded-lg bg-slate-50 p-3 text-center">
+              <div class="text-xs text-slate-500">{pr.label}</div>
+              <div class="mt-1 font-bold text-slate-900">{formatMoney(pr.value, p.currency)}</div>
+            </div>
+          ))}
+        </div>
+        <div class="mt-3 flex items-center justify-between rounded-lg border border-indigo-100 bg-indigo-50 px-3 py-2">
+          <span class="text-sm font-medium text-indigo-700">Preț vânzare (în oferte)</span>
+          <span class="font-bold text-indigo-700">{formatMoney(p.price, p.currency)}</span>
+        </div>
+        <p class="mt-2 text-xs text-slate-400">TVA aplicat: {p.vatRate}%</p>
+      </section>
+
+      <!-- Stoc -->
+      <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <h2 class="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Stoc</h2>
+        <div class="flex items-center justify-between">
+          <span class={`rounded-full px-3 py-1 text-sm font-medium ${st.cls}`}>{st.label}</span>
+          <span class="text-2xl font-bold text-slate-900">{formatQty(p.stockQty)} <span class="text-base font-normal text-slate-400">{p.unit}</span></span>
+        </div>
+        {p.lowStockThreshold > 0 && (
+          <p class="mt-2 text-xs text-slate-400">Prag stoc scăzut: {formatQty(p.lowStockThreshold)} {p.unit}</p>
+        )}
+      </section>
+
+      <!-- Detalii -->
+      <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <h2 class="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Detalii</h2>
+        <dl class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+          <dt class="text-slate-500">SKU</dt><dd class="font-mono text-slate-800">{p.sku}</dd>
+          <dt class="text-slate-500">Brand</dt><dd class="text-slate-800">{p.brand ?? '—'}</dd>
+          <dt class="text-slate-500">Categorie</dt><dd class="text-slate-800">{p.category ?? '—'}</dd>
+          <dt class="text-slate-500">Cod EAN</dt><dd class="font-mono text-slate-800">{p.barcode ?? '—'}</dd>
+          <dt class="text-slate-500">Unitate</dt><dd class="text-slate-800">{p.unit}</dd>
+          <dt class="text-slate-500">Sursă</dt><dd class="text-slate-800">{p.source}</dd>
+        </dl>
+      </section>
     </div>
   </div>
+
+  <!-- Descriere + documentatie -->
+  {(p.description || files.length > 0) && (
+    <div class="mt-6 grid gap-6 lg:grid-cols-2">
+      {p.description && (
+        <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <h2 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Descriere</h2>
+          <p class="whitespace-pre-line text-sm text-slate-700">{p.description}</p>
+        </section>
+      )}
+      {files.length > 0 && (
+        <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <h2 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Documentație ({files.length})</h2>
+          <ul class="space-y-1.5">
+            {files.map((href) => (
+              <li>
+                <a href={href} target="_blank" rel="noopener" class="inline-flex items-center gap-2 text-sm text-indigo-600 hover:underline">
+                  📄 {fileName(href)}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+    </div>
+  )}
 </Layout>
+
+<script>
+  document.querySelectorAll<HTMLButtonElement>('.thumb').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const src = btn.dataset.src;
+      const main = document.getElementById('mainImg') as HTMLImageElement | null;
+      if (src && main) main.src = src;
+      document.querySelectorAll('.thumb').forEach((b) => b.classList.remove('border-indigo-400'));
+      btn.classList.add('border-indigo-400');
+    });
+  });
+</script>
