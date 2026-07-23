@@ -1,6 +1,7 @@
 ---
 import Layout from '@/layouts/Layout.astro';
 import FeedImporter from '@/components/FeedImporter.tsx';
+import ImageImporter from '@/components/ImageImporter.tsx';
 import { getDb } from '@/db';
 import { feedSources } from '@/db/schema';
 
@@ -35,5 +36,19 @@ const sources = await db.select().from(feedSources);
     </div>
   )}
 
-  <FeedImporter client:load sources={sources} />
+  <section>
+    <h2 class="mb-1 text-lg font-semibold text-slate-900">1. Produse &amp; prețuri &amp; stoc (XML)</h2>
+    <p class="mb-3 text-sm text-slate-500">Catalog complet: nume, prețuri A/B, stoc, categorii, fișe tehnice.</p>
+    <FeedImporter client:load sources={sources} />
+  </section>
+
+  <hr class="my-8 border-slate-200" />
+
+  <section>
+    <h2 class="mb-1 text-lg font-semibold text-slate-900">2. Poze produse (CSV)</h2>
+    <p class="mb-3 text-sm text-slate-500">
+      Feed separat de poze (de pe spotvisionelectric.ro), legat la produse după SKU. Actualizează doar pozele.
+    </p>
+    <ImageImporter client:only="react" />
+  </section>
 </Layout>

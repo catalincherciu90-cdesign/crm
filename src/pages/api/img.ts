@@ -7,7 +7,7 @@ const ALLOWED = [
   'cdn.braytron.center',
   'braytron.center',
   'spotvision-electric.ro',
-  'b2b.spotvisionelectric.ro',
+  'spotvisionelectric.ro', // acopera www. si b2b. via endsWith
 ];
 
 function hostAllowed(host: string): boolean {
