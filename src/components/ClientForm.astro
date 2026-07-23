@@ -43,6 +43,13 @@ const label = 'block text-xs font-medium text-slate-600';
         <option value="PRET_B" selected={client?.priceList === 'PRET_B'}>Preț B</option>
       </select>
     </div>
+    <div>
+      <label class={label} for="active">Status</label>
+      <select class={field} id="active" name="active">
+        <option value="1" selected={client ? client.active : true}>Activ</option>
+        <option value="0" selected={client ? !client.active : false}>Inactiv</option>
+      </select>
+    </div>
   </div>
   <div>
     <label class={label} for="notes">Note</label>

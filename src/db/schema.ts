@@ -20,6 +20,7 @@ export const clients = sqliteTable(
     taxId: text('tax_id'), // CUI / CIF
     address: text('address'),
     priceList: text('price_list'), // 'PRET_A' | 'PRET_B' — lista de pret a clientului
+    active: integer('active', { mode: 'boolean' }).notNull().default(true),
     notes: text('notes'),
     createdAt: text('created_at')
       .notNull()

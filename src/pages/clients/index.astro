@@ -1,5 +1,5 @@
 ---
-import { desc, or, like, sql, type SQL } from 'drizzle-orm';
+import { desc, or, like, and, eq, sql, type SQL } from 'drizzle-orm';
 import Layout from '@/layouts/Layout.astro';
 import { getDb } from '@/db';
 import { clients } from '@/db/schema';
@@ -10,19 +10,25 @@ const PER_PAGE = 50;
 const db = getDb(Astro.locals.runtime.env.DB);
 
 const q = (Astro.url.searchParams.get('q') || '').trim();
+const activeParam = Astro.url.searchParams.get('active'); // '1' | '0' | null
 const page = Math.max(1, Number(Astro.url.searchParams.get('page')) || 1);
 
-let where: SQL | undefined;
+const conds: SQL[] = [];
 if (q) {
   const pat = `%${q}%`;
-  where = or(
-    like(clients.name, pat),
-    like(clients.company, pat),
-    like(clients.email, pat),
-    like(clients.phone, pat),
-    like(clients.taxId, pat),
+  conds.push(
+    or(
+      like(clients.name, pat),
+      like(clients.company, pat),
+      like(clients.email, pat),
+      like(clients.phone, pat),
+      like(clients.taxId, pat),
+    )!,
   );
 }
+if (activeParam === '1') conds.push(eq(clients.active, true));
+if (activeParam === '0') conds.push(eq(clients.active, false));
+const where = conds.length ? and(...conds) : undefined;
 
 const [{ total }] = await db.select({ total: sql<number>`count(*)` }).from(clients).where(where);
 const rows = await db
@@ -34,13 +40,21 @@ const rows = await db
   .offset((page - 1) * PER_PAGE);
 
 const totalPages = Math.max(1, Math.ceil(total / PER_PAGE));
-const pageUrl = (p: number) => {
+const buildUrl = (params: Record<string, string | number | undefined>) => {
+  const merged = { q, active: activeParam ?? undefined, ...params };
   const sp = new URLSearchParams();
-  if (q) sp.set('q', q);
-  if (p > 1) sp.set('page', String(p));
+  for (const [k, v] of Object.entries(merged)) {
+    if (v !== undefined && v !== '' && v !== null && !(k === 'page' && Number(v) === 1)) sp.set(k, String(v));
+  }
   const s = sp.toString();
   return '/clients' + (s ? `?${s}` : '');
 };
+const pageUrl = (p: number) => buildUrl({ page: p });
+const filters = [
+  { label: 'Toți', val: undefined, on: !activeParam },
+  { label: 'Activi', val: '1', on: activeParam === '1' },
+  { label: 'Inactivi', val: '0', on: activeParam === '0' },
+];
 ---
 
 <Layout title="Clienti">
@@ -55,12 +69,21 @@ const pageUrl = (p: number) => {
     </div>
   </div>
 
-  <form method="GET" action="/clients" class="mb-4 flex gap-2">
+  <form method="GET" action="/clients" class="mb-3 flex gap-2">
+    {activeParam && <input type="hidden" name="active" value={activeParam} />}
     <input type="search" name="q" value={q} placeholder="Caută după nume, firmă, email, telefon, CIF..."
       class="w-full max-w-md rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" />
     <button class="rounded-lg bg-slate-800 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-900">Caută</button>
-    {q && <a href="/clients" class="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50">Resetează</a>}
+    {(q || activeParam) && <a href="/clients" class="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50">Resetează</a>}
   </form>
+
+  <div class="mb-5 flex gap-2">
+    {filters.map((f) => (
+      <a href={buildUrl({ active: f.val, page: 1 })} class={`rounded-full px-3 py-1 text-sm font-medium transition ${f.on ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 border border-slate-200 hover:border-indigo-300'}`}>
+        {f.label}
+      </a>
+    ))}
+  </div>
 
   <div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
     {rows.length === 0 ? (
@@ -72,6 +95,8 @@ const pageUrl = (p: number) => {
             <th class="px-4 py-3">Nume</th>
             <th class="px-4 py-3">Firmă / CUI</th>
             <th class="px-4 py-3">Contact</th>
+            <th class="px-4 py-3">Listă preț</th>
+            <th class="px-4 py-3">Status</th>
             <th class="px-4 py-3"></th>
           </tr>
         </thead>
@@ -86,6 +111,12 @@ const pageUrl = (p: number) => {
               <td class="px-4 py-3 text-slate-600">
                 {c.email ?? '—'}
                 {c.phone && <span class="block text-xs text-slate-400">{c.phone}</span>}
+              </td>
+              <td class="px-4 py-3 text-slate-600">{c.priceList ? c.priceList.replace('PRET_', 'Preț ') : '—'}</td>
+              <td class="px-4 py-3">
+                {c.active
+                  ? <span class="inline-block rounded-full bg-green-100 px-2 py-0.5 text-[11px] font-medium text-green-700">Activ</span>
+                  : <span class="inline-block rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-500">Inactiv</span>}
               </td>
               <td class="px-4 py-3 text-right">
                 <a href={`/clients/${c.id}`} class="text-indigo-600 hover:underline">Editează</a>

@@ -14,10 +14,12 @@ export const prerender = false;
 const STATEMENTS: string[] = [
   `CREATE TABLE IF NOT EXISTS clients (
     id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, company TEXT, email TEXT,
-    phone TEXT, tax_id TEXT, address TEXT, price_list TEXT, notes TEXT,
+    phone TEXT, tax_id TEXT, address TEXT, price_list TEXT,
+    active INTEGER NOT NULL DEFAULT 1, notes TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now')))`,
   `CREATE INDEX IF NOT EXISTS idx_clients_name ON clients (name)`,
   `ALTER TABLE clients ADD COLUMN price_list TEXT`,
+  `ALTER TABLE clients ADD COLUMN active INTEGER NOT NULL DEFAULT 1`,
 
   `CREATE TABLE IF NOT EXISTS products (
     id INTEGER PRIMARY KEY AUTOINCREMENT, sku TEXT NOT NULL UNIQUE, name TEXT NOT NULL,

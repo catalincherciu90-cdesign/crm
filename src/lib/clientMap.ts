@@ -8,6 +8,7 @@ export interface MappedClient {
   taxId: string;
   address: string;
   priceList: string; // '' | 'PRET_A' | 'PRET_B'
+  active: boolean;
   notes: string;
 }
 
@@ -24,7 +25,7 @@ export function norm(s: string): string {
 
 type Field =
   | 'name' | 'firstName' | 'lastName' | 'company' | 'email'
-  | 'phone' | 'taxId' | 'address' | 'city' | 'county' | 'country' | 'priceList' | 'notes';
+  | 'phone' | 'taxId' | 'address' | 'city' | 'county' | 'country' | 'priceList' | 'active' | 'notes';
 
 const ALIASES: Record<Field, string[]> = {
   name: ['name', 'nume', 'denumire', 'numeclient', 'client', 'fullname'],
@@ -39,8 +40,14 @@ const ALIASES: Record<Field, string[]> = {
   county: ['county', 'judet'],
   country: ['country', 'tara'],
   priceList: ['pricelist', 'listapret', 'listadepret', 'listpret'],
+  active: ['active', 'activ', 'status', 'enabled'],
   notes: ['notes', 'note', 'observatii', 'mentiuni', 'comentarii'],
 };
+
+/** Interpreteaza o valoare ca activ (true) / inactiv (false). */
+export function isActiveValue(v: string): boolean {
+  return ['1', 'true', 'yes', 'da', 'activ', 'active', 'y', 't'].includes(norm(v));
+}
 
 /** Normalizeaza valoarea listei de pret: "PRET A" -> 'PRET_A', "B" -> 'PRET_B'. */
 export function normPriceList(v: string): string {
@@ -83,6 +90,8 @@ export function mapClientRow(
     taxId: val('taxId'),
     address,
     priceList: normPriceList(val('priceList')),
+    // Daca exista coloana "Active" -> urmeaza valoarea; altfel presupunem activ.
+    active: map.active ? isActiveValue(val('active')) : true,
     notes: val('notes'),
   };
 }
