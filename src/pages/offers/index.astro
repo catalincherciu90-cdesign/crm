@@ -1,0 +1,72 @@
+---
+import { desc, eq } from 'drizzle-orm';
+import Layout from '@/layouts/Layout.astro';
+import { getDb } from '@/db';
+import { offers, clients } from '@/db/schema';
+import { formatMoney } from '@/lib/money';
+
+export const prerender = false;
+
+const db = getDb(Astro.locals.runtime.env.DB);
+const rows = await db
+  .select({
+    id: offers.id,
+    number: offers.number,
+    status: offers.status,
+    total: offers.total,
+    currency: offers.currency,
+    issueDate: offers.issueDate,
+    validUntil: offers.validUntil,
+    client: clients.name,
+  })
+  .from(offers)
+  .leftJoin(clients, eq(offers.clientId, clients.id))
+  .orderBy(desc(offers.id));
+
+const statusLabel: Record<string, string> = { draft: 'Ciornă', sent: 'Trimisă', accepted: 'Acceptată', rejected: 'Respinsă' };
+const statusClass: Record<string, string> = {
+  draft: 'bg-slate-100 text-slate-600', sent: 'bg-blue-100 text-blue-700',
+  accepted: 'bg-green-100 text-green-700', rejected: 'bg-red-100 text-red-700',
+};
+---
+
+<Layout title="Oferte">
+  <div class="mb-6 flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-bold text-slate-900">Oferte</h1>
+      <p class="text-sm text-slate-500">{rows.length} oferte.</p>
+    </div>
+    <a href="/offers/new" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">+ Ofertă nouă</a>
+  </div>
+
+  <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+    {rows.length === 0 ? (
+      <p class="p-8 text-center text-sm text-slate-400">Nicio ofertă. Creează prima ofertă.</p>
+    ) : (
+      <table class="w-full text-sm">
+        <thead class="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+          <tr>
+            <th class="px-4 py-3">Număr</th>
+            <th class="px-4 py-3">Client</th>
+            <th class="px-4 py-3">Emisă</th>
+            <th class="px-4 py-3">Valabilă</th>
+            <th class="px-4 py-3 text-right">Total</th>
+            <th class="px-4 py-3">Status</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          {rows.map((o) => (
+            <tr class="cursor-pointer hover:bg-slate-50" onclick={`location.href='/offers/${o.id}'`}>
+              <td class="px-4 py-3 font-medium text-indigo-700">{o.number}</td>
+              <td class="px-4 py-3 text-slate-700">{o.client ?? '—'}</td>
+              <td class="px-4 py-3 text-slate-500">{o.issueDate}</td>
+              <td class="px-4 py-3 text-slate-500">{o.validUntil ?? '—'}</td>
+              <td class="px-4 py-3 text-right font-semibold text-slate-900">{formatMoney(o.total, o.currency)}</td>
+              <td class="px-4 py-3"><span class={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${statusClass[o.status]}`}>{statusLabel[o.status]}</span></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    )}
+  </div>
+</Layout>

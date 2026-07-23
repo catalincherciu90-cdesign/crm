@@ -1,0 +1,30 @@
+---
+import { asc } from 'drizzle-orm';
+import Layout from '@/layouts/Layout.astro';
+import OfferBuilder from '@/components/OfferBuilder.tsx';
+import { getDb } from '@/db';
+import { clients, products } from '@/db/schema';
+
+export const prerender = false;
+
+const db = getDb(Astro.locals.runtime.env.DB);
+const [clientList, productList] = await Promise.all([
+  db.select().from(clients).orderBy(asc(clients.name)),
+  db.select().from(products).orderBy(asc(products.name)),
+]);
+---
+
+<Layout title="Ofertă nouă">
+  <div class="mb-6">
+    <a href="/offers" class="text-sm text-indigo-600 hover:underline">← Oferte</a>
+    <h1 class="mt-2 text-2xl font-bold text-slate-900">Ofertă nouă</h1>
+  </div>
+
+  {clientList.length === 0 ? (
+    <div class="rounded-xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-800">
+      Nu ai încă niciun client. <a href="/clients/new" class="font-semibold underline">Adaugă un client</a> înainte de a crea o ofertă.
+    </div>
+  ) : (
+    <OfferBuilder client:load clients={clientList} products={productList} />
+  )}
+</Layout>

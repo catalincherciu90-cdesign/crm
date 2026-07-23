@@ -1,0 +1,25 @@
+---
+import { eq } from 'drizzle-orm';
+import Layout from '@/layouts/Layout.astro';
+import ProductForm from '@/components/ProductForm.astro';
+import { getDb } from '@/db';
+import { products } from '@/db/schema';
+
+export const prerender = false;
+
+const id = Number(Astro.params.id);
+const db = getDb(Astro.locals.runtime.env.DB);
+const [product] = await db.select().from(products).where(eq(products.id, id));
+
+if (!product) return Astro.redirect('/products');
+---
+
+<Layout title={`Editează ${product.name}`}>
+  <div class="mx-auto max-w-2xl">
+    <a href="/products" class="text-sm text-indigo-600 hover:underline">← Produse</a>
+    <h1 class="mt-2 mb-6 text-2xl font-bold text-slate-900">Editează produs</h1>
+    <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+      <ProductForm product={product} />
+    </div>
+  </div>
+</Layout>

@@ -1,0 +1,25 @@
+---
+import { eq } from 'drizzle-orm';
+import Layout from '@/layouts/Layout.astro';
+import ClientForm from '@/components/ClientForm.astro';
+import { getDb } from '@/db';
+import { clients } from '@/db/schema';
+
+export const prerender = false;
+
+const id = Number(Astro.params.id);
+const db = getDb(Astro.locals.runtime.env.DB);
+const [client] = await db.select().from(clients).where(eq(clients.id, id));
+
+if (!client) return Astro.redirect('/clients');
+---
+
+<Layout title={`Editează ${client.name}`}>
+  <div class="mx-auto max-w-2xl">
+    <a href="/clients" class="text-sm text-indigo-600 hover:underline">← Clienți</a>
+    <h1 class="mt-2 mb-6 text-2xl font-bold text-slate-900">Editează client</h1>
+    <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+      <ClientForm client={client} />
+    </div>
+  </div>
+</Layout>

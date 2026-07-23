@@ -1,0 +1,57 @@
+---
+import type { Product } from '@/db/schema';
+interface Props {
+  product?: Product;
+}
+const { product } = Astro.props;
+const field = 'mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500';
+const label = 'block text-xs font-medium text-slate-600';
+---
+
+<form method="POST" action="/api/products" class="space-y-4">
+  {product && <input type="hidden" name="id" value={product.id} />}
+  <div class="grid gap-4 sm:grid-cols-2">
+    <div>
+      <label class={label} for="sku">SKU *</label>
+      <input class={field} id="sku" name="sku" required value={product?.sku ?? ''} />
+    </div>
+    <div>
+      <label class={label} for="name">Denumire *</label>
+      <input class={field} id="name" name="name" required value={product?.name ?? ''} />
+    </div>
+    <div>
+      <label class={label} for="category">Categorie</label>
+      <input class={field} id="category" name="category" value={product?.category ?? ''} />
+    </div>
+    <div>
+      <label class={label} for="unit">Unitate</label>
+      <input class={field} id="unit" name="unit" value={product?.unit ?? 'buc'} placeholder="buc, kg, m, ora" />
+    </div>
+    <div>
+      <label class={label} for="price">Preț unitar (fără TVA)</label>
+      <input class={field} id="price" name="price" type="number" step="0.01" value={product?.price ?? 0} />
+    </div>
+    <div>
+      <label class={label} for="vatRate">Cotă TVA (%)</label>
+      <input class={field} id="vatRate" name="vatRate" type="number" step="0.1" value={product?.vatRate ?? 19} />
+    </div>
+    <div>
+      <label class={label} for="stockQty">Stoc</label>
+      <input class={field} id="stockQty" name="stockQty" type="number" step="0.001" value={product?.stockQty ?? 0} />
+    </div>
+    <div>
+      <label class={label} for="lowStockThreshold">Prag stoc scăzut</label>
+      <input class={field} id="lowStockThreshold" name="lowStockThreshold" type="number" step="0.001" value={product?.lowStockThreshold ?? 0} />
+    </div>
+  </div>
+  <div>
+    <label class={label} for="description">Descriere</label>
+    <textarea class={field} id="description" name="description" rows="3">{product?.description ?? ''}</textarea>
+  </div>
+  <div class="flex gap-3">
+    <button type="submit" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">
+      {product ? 'Salvează' : 'Adaugă produs'}
+    </button>
+    <a href="/products" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50">Anulează</a>
+  </div>
+</form>

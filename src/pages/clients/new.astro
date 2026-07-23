@@ -1,0 +1,15 @@
+---
+import Layout from '@/layouts/Layout.astro';
+import ClientForm from '@/components/ClientForm.astro';
+export const prerender = false;
+---
+
+<Layout title="Client nou">
+  <div class="mx-auto max-w-2xl">
+    <a href="/clients" class="text-sm text-indigo-600 hover:underline">← Clienți</a>
+    <h1 class="mt-2 mb-6 text-2xl font-bold text-slate-900">Client nou</h1>
+    <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+      <ClientForm />
+    </div>
+  </div>
+</Layout>

@@ -1,0 +1,136 @@
+---
+import { sql, desc, eq, lte, gt, and } from 'drizzle-orm';
+import Layout from '@/layouts/Layout.astro';
+import { getDb } from '@/db';
+import { clients, products, offers } from '@/db/schema';
+import { formatMoney, formatQty } from '@/lib/money';
+
+export const prerender = false;
+
+const db = getDb(Astro.locals.runtime.env.DB);
+
+const [clientCount] = await db.select({ n: sql<number>`count(*)` }).from(clients);
+const [productCount] = await db.select({ n: sql<number>`count(*)` }).from(products);
+const [offerCount] = await db.select({ n: sql<number>`count(*)` }).from(offers);
+const [pipeline] = await db
+  .select({ v: sql<number>`coalesce(sum(total), 0)` })
+  .from(offers)
+  .where(sql`status in ('sent','accepted')`);
+
+const lowStock = await db
+  .select()
+  .from(products)
+  .where(and(gt(products.lowStockThreshold, 0), lte(products.stockQty, products.lowStockThreshold)))
+  .orderBy(products.stockQty)
+  .limit(6);
+
+const recentOffers = await db
+  .select({
+    id: offers.id,
+    number: offers.number,
+    status: offers.status,
+    total: offers.total,
+    currency: offers.currency,
+    issueDate: offers.issueDate,
+    client: clients.name,
+  })
+  .from(offers)
+  .leftJoin(clients, eq(offers.clientId, clients.id))
+  .orderBy(desc(offers.id))
+  .limit(6);
+
+const statusLabel: Record<string, string> = {
+  draft: 'Ciorna', sent: 'Trimisa', accepted: 'Acceptata', rejected: 'Respinsa',
+};
+const statusClass: Record<string, string> = {
+  draft: 'bg-slate-100 text-slate-600',
+  sent: 'bg-blue-100 text-blue-700',
+  accepted: 'bg-green-100 text-green-700',
+  rejected: 'bg-red-100 text-red-700',
+};
+
+const stats = [
+  { label: 'Clienti', value: clientCount.n, href: '/clients', icon: '👥' },
+  { label: 'Produse', value: productCount.n, href: '/products', icon: '📦' },
+  { label: 'Oferte', value: offerCount.n, href: '/offers', icon: '📄' },
+  { label: 'Pipeline (trimise+acceptate)', value: formatMoney(pipeline.v), href: '/offers', icon: '💰' },
+];
+---
+
+<Layout title="Dashboard">
+  <div class="mb-8 flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-bold text-slate-900">Dashboard</h1>
+      <p class="text-sm text-slate-500">Privire de ansamblu asupra ofertelor si stocurilor.</p>
+    </div>
+    <a href="/offers/new" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700">
+      + Ofertă nouă
+    </a>
+  </div>
+
+  <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
+    {stats.map((s) => (
+      <a href={s.href} class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-indigo-300">
+        <div class="text-2xl">{s.icon}</div>
+        <div class="mt-2 text-2xl font-bold text-slate-900">{s.value}</div>
+        <div class="text-xs text-slate-500">{s.label}</div>
+      </a>
+    ))}
+  </div>
+
+  <div class="mt-8 grid gap-6 lg:grid-cols-2">
+    <!-- Oferte recente -->
+    <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div class="mb-4 flex items-center justify-between">
+        <h2 class="font-semibold text-slate-900">Oferte recente</h2>
+        <a href="/offers" class="text-sm text-indigo-600 hover:underline">Toate</a>
+      </div>
+      {recentOffers.length === 0 ? (
+        <p class="py-6 text-center text-sm text-slate-400">Nicio ofertă încă.</p>
+      ) : (
+        <ul class="divide-y divide-slate-100">
+          {recentOffers.map((o) => (
+            <li>
+              <a href={`/offers/${o.id}`} class="flex items-center justify-between py-3 hover:opacity-80">
+                <div>
+                  <div class="text-sm font-medium text-slate-900">{o.number}</div>
+                  <div class="text-xs text-slate-500">{o.client ?? '—'} · {o.issueDate}</div>
+                </div>
+                <div class="text-right">
+                  <div class="text-sm font-semibold text-slate-900">{formatMoney(o.total, o.currency)}</div>
+                  <span class={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${statusClass[o.status]}`}>{statusLabel[o.status]}</span>
+                </div>
+              </a>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+
+    <!-- Stoc scazut -->
+    <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div class="mb-4 flex items-center justify-between">
+        <h2 class="font-semibold text-slate-900">⚠️ Stoc scăzut</h2>
+        <a href="/products" class="text-sm text-indigo-600 hover:underline">Produse</a>
+      </div>
+      {lowStock.length === 0 ? (
+        <p class="py-6 text-center text-sm text-slate-400">Toate stocurile sunt în regulă. ✅</p>
+      ) : (
+        <ul class="divide-y divide-slate-100">
+          {lowStock.map((p) => (
+            <li class="flex items-center justify-between py-3">
+              <div>
+                <div class="text-sm font-medium text-slate-900">{p.name}</div>
+                <div class="text-xs text-slate-500">{p.sku}</div>
+              </div>
+              <div class="text-right">
+                <span class="text-sm font-bold text-red-600">{formatQty(p.stockQty)} {p.unit}</span>
+                <div class="text-[11px] text-slate-400">prag: {formatQty(p.lowStockThreshold)}</div>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  </div>
+</Layout>
