@@ -7,6 +7,7 @@ export interface MappedClient {
   phone: string;
   taxId: string;
   address: string;
+  priceList: string; // '' | 'PRET_A' | 'PRET_B'
   notes: string;
 }
 
@@ -23,7 +24,7 @@ export function norm(s: string): string {
 
 type Field =
   | 'name' | 'firstName' | 'lastName' | 'company' | 'email'
-  | 'phone' | 'taxId' | 'address' | 'city' | 'county' | 'country' | 'notes';
+  | 'phone' | 'taxId' | 'address' | 'city' | 'county' | 'country' | 'priceList' | 'notes';
 
 const ALIASES: Record<Field, string[]> = {
   name: ['name', 'nume', 'denumire', 'numeclient', 'client', 'fullname'],
@@ -37,8 +38,17 @@ const ALIASES: Record<Field, string[]> = {
   city: ['city', 'oras', 'localitate'],
   county: ['county', 'judet'],
   country: ['country', 'tara'],
+  priceList: ['pricelist', 'listapret', 'listadepret', 'listpret'],
   notes: ['notes', 'note', 'observatii', 'mentiuni', 'comentarii'],
 };
+
+/** Normalizeaza valoarea listei de pret: "PRET A" -> 'PRET_A', "B" -> 'PRET_B'. */
+export function normPriceList(v: string): string {
+  const n = norm(v); // ex. "preta", "pretb", "a", "b"
+  if (n.includes('b')) return 'PRET_B';
+  if (n.includes('a')) return 'PRET_A';
+  return '';
+}
 
 /** Gaseste, pentru fiecare camp, header-ul real din fisier care se potriveste. */
 export function resolveHeaders(headers: string[]): Partial<Record<Field, string>> {
@@ -72,6 +82,7 @@ export function mapClientRow(
     phone: val('phone'),
     taxId: val('taxId'),
     address,
+    priceList: normPriceList(val('priceList')),
     notes: val('notes'),
   };
 }

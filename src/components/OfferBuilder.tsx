@@ -53,6 +53,17 @@ export default function OfferBuilder({ clients, products }: Props) {
     setLines((prev) => prev.map((l) => (l.key === key ? { ...l, ...patch } : l)));
   }
 
+  // Pretul unui produs in functie de lista de pret a clientului selectat
+  function productPrice(p: Product, priceList?: string | null): number {
+    if (priceList === 'PRET_A') return p.priceA || p.price;
+    if (priceList === 'PRET_B') return p.priceB || p.price;
+    return p.price;
+  }
+
+  function selectedClient() {
+    return clients.find((c) => c.id === clientId);
+  }
+
   function pickProduct(key: number, productId: number) {
     const p = products.find((x) => x.id === productId);
     if (!p) {
@@ -63,9 +74,22 @@ export default function OfferBuilder({ clients, products }: Props) {
       productId: p.id,
       description: p.name,
       unit: p.unit,
-      unitPrice: p.price,
+      unitPrice: productPrice(p, selectedClient()?.priceList),
       vatRate: p.vatRate,
     });
+  }
+
+  // La schimbarea clientului, recalculeaza preturile liniilor legate de produse
+  function changeClient(id: number | '') {
+    setClientId(id);
+    const cl = clients.find((c) => c.id === id);
+    setLines((prev) =>
+      prev.map((l) => {
+        if (!l.productId) return l;
+        const p = products.find((x) => x.id === l.productId);
+        return p ? { ...l, unitPrice: productPrice(p, cl?.priceList) } : l;
+      }),
+    );
   }
 
   async function submit() {
@@ -117,12 +141,15 @@ export default function OfferBuilder({ clients, products }: Props) {
       <div className="grid gap-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:grid-cols-2 lg:grid-cols-4">
         <div>
           <label className="block text-xs font-medium text-slate-600">Client *</label>
-          <select className={inputCls + ' mt-1'} value={clientId} onChange={(e) => setClientId(e.target.value ? Number(e.target.value) : '')}>
+          <select className={inputCls + ' mt-1'} value={clientId} onChange={(e) => changeClient(e.target.value ? Number(e.target.value) : '')}>
             <option value="">— alege client —</option>
             {clients.map((c) => (
               <option key={c.id} value={c.id}>{c.name}{c.company ? ` (${c.company})` : ''}</option>
             ))}
           </select>
+          {selectedClient()?.priceList && (
+            <p className="mt-1 text-[11px] text-indigo-600">Listă preț client: {selectedClient()!.priceList!.replace('PRET_', 'Preț ')} (aplicată automat)</p>
+          )}
         </div>
         <div>
           <label className="block text-xs font-medium text-slate-600">Valabilă până la</label>

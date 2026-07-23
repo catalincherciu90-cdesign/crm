@@ -14,6 +14,7 @@ interface IncomingClient {
   phone?: string;
   taxId?: string;
   address?: string;
+  priceList?: string;
   notes?: string;
 }
 
@@ -28,6 +29,13 @@ export const POST: APIRoute = async ({ request, locals }) => {
   const body = (await request.json().catch(() => ({}))) as { clients?: IncomingClient[] };
   const incoming = Array.isArray(body.clients) ? body.clients : [];
   if (incoming.length === 0) return badRequest('Niciun client de importat.');
+
+  // self-heal: asigura coloana price_list (baze mai vechi)
+  try {
+    await locals.runtime.env.DB.prepare(`ALTER TABLE clients ADD COLUMN price_list TEXT`).run();
+  } catch {
+    /* exista deja */
+  }
 
   // Email-urile existente (pentru dedupe)
   const existing = await db.select({ email: clients.email }).from(clients);
@@ -56,6 +64,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       phone: (c.phone || '').trim() || null,
       taxId: (c.taxId || '').trim() || null,
       address: (c.address || '').trim() || null,
+      priceList: (c.priceList || '').trim() || null,
       notes: (c.notes || '').trim() || null,
     });
   }

@@ -145,7 +145,7 @@ export default function ClientImporter() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="border-b border-slate-200 text-left text-xs uppercase text-slate-500">
-                <tr><th className="py-2">Nume</th><th className="py-2">Firmă</th><th className="py-2">Email</th><th className="py-2">Telefon</th><th className="py-2">CIF</th></tr>
+                <tr><th className="py-2">Nume</th><th className="py-2">Firmă</th><th className="py-2">Email</th><th className="py-2">Telefon</th><th className="py-2">CIF</th><th className="py-2">Listă preț</th></tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {preview.map((c, i) => (
@@ -155,6 +155,7 @@ export default function ClientImporter() {
                     <td className="py-1.5 text-slate-500">{c.email || '—'}</td>
                     <td className="py-1.5 text-slate-500">{c.phone || '—'}</td>
                     <td className="py-1.5 text-slate-500">{c.taxId || '—'}</td>
+                    <td className="py-1.5 text-slate-500">{c.priceList ? c.priceList.replace('PRET_', 'Preț ') : '—'}</td>
                   </tr>
                 ))}
               </tbody>

@@ -35,6 +35,14 @@ const label = 'block text-xs font-medium text-slate-600';
       <label class={label} for="address">Adresă</label>
       <input class={field} id="address" name="address" value={client?.address ?? ''} />
     </div>
+    <div>
+      <label class={label} for="priceList">Listă de preț</label>
+      <select class={field} id="priceList" name="priceList">
+        <option value="" selected={!client?.priceList}>— (implicit: preț vânzare)</option>
+        <option value="PRET_A" selected={client?.priceList === 'PRET_A'}>Preț A</option>
+        <option value="PRET_B" selected={client?.priceList === 'PRET_B'}>Preț B</option>
+      </select>
+    </div>
   </div>
   <div>
     <label class={label} for="notes">Note</label>

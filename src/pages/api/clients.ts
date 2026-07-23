@@ -28,6 +28,7 @@ export const POST: APIRoute = async ({ request, locals, redirect }) => {
     phone: reqStr(fd, 'phone') || null,
     taxId: reqStr(fd, 'taxId') || null,
     address: reqStr(fd, 'address') || null,
+    priceList: reqStr(fd, 'priceList') || null,
     notes: reqStr(fd, 'notes') || null,
   };
 
