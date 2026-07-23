@@ -44,20 +44,34 @@ export const GET: APIRoute = async ({ url, locals }) => {
     if (hit) return hit;
   }
 
-  let upstream: Response;
-  try {
-    upstream = await fetch(u.toString(), {
-      headers: {
-        // fara Referer -> ca o accesare directa, pe care CDN-ul o permite
-        'user-agent': 'Mozilla/5.0 (compatible; CRM/1.0)',
-        accept: 'image/avif,image/webp,image/jpeg,image/png,image/*,*/*',
-      },
-    });
-  } catch (e) {
-    return new Response('fetch failed: ' + (e as Error).message, { status: 502 });
+  // Unele CDN-uri servesc pozele doar cu browser real + Referer de pe domeniul lor
+  // (altfel raspund 404/403). Incercam mai multe variante de Referer.
+  const UA =
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
+  const referers = u.hostname.includes('braytron')
+    ? ['https://www.braytron.center/', 'https://cdn.braytron.center/', u.origin + '/', '']
+    : ['https://spotvision-electric.ro/', u.origin + '/', ''];
+
+  let upstream: Response | null = null;
+  for (const ref of referers) {
+    const headers: Record<string, string> = {
+      'user-agent': UA,
+      accept: 'image/avif,image/webp,image/jpeg,image/png,image/*,*/*',
+      'accept-language': 'ro-RO,ro;q=0.9,en;q=0.8',
+    };
+    if (ref) headers['referer'] = ref;
+    try {
+      const r = await fetch(u.toString(), { headers });
+      if (r.ok) {
+        upstream = r;
+        break;
+      }
+    } catch {
+      /* incearca urmatorul referer */
+    }
   }
 
-  if (!upstream.ok) return new Response('upstream ' + upstream.status, { status: 502 });
+  if (!upstream) return new Response('upstream unavailable', { status: 502 });
 
   const resp = new Response(upstream.body, {
     status: 200,
