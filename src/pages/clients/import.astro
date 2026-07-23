@@ -1,0 +1,18 @@
+---
+import Layout from '@/layouts/Layout.astro';
+import ClientImporter from '@/components/ClientImporter.tsx';
+export const prerender = false;
+---
+
+<Layout title="Import clienți">
+  <div class="mb-6">
+    <a href="/clients" class="text-sm text-indigo-600 hover:underline">← Clienți</a>
+    <h1 class="mt-2 text-2xl font-bold text-slate-900">Import clienți din Excel</h1>
+    <p class="text-sm text-slate-500">
+      Încarcă un fișier <strong>.xlsx</strong>, <strong>.xls</strong> sau <strong>.csv</strong>.
+      Coloanele sunt recunoscute automat. Duplicatele (după email) sunt sărite.
+    </p>
+  </div>
+
+  <ClientImporter client:only="react" />
+</Layout>
