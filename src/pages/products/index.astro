@@ -51,8 +51,20 @@ function stockState(p: (typeof rows)[number]) {
             return (
               <tr class="hover:bg-slate-50">
                 <td class="px-4 py-3">
-                  <div class="font-medium text-slate-900">{p.name}</div>
-                  <div class="text-xs text-slate-400">{p.sku}{p.brand ? ` · ${p.brand}` : ''}</div>
+                  <div class="flex items-center gap-3">
+                    {p.images ? (
+                      <img src={p.images.split('#')[0]} alt={p.name} loading="lazy" class="h-10 w-10 shrink-0 rounded border border-slate-200 object-contain bg-white" />
+                    ) : (
+                      <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded border border-slate-100 bg-slate-50 text-slate-300">📦</div>
+                    )}
+                    <div>
+                      <div class="font-medium text-slate-900">{p.name}</div>
+                      <div class="text-xs text-slate-400">
+                        {p.sku}{p.brand ? ` · ${p.brand}` : ''}
+                        {p.files && <span class="ml-1 text-indigo-400">· 📄 fișă</span>}
+                      </div>
+                    </div>
+                  </div>
                 </td>
                 <td class="px-4 py-3 text-slate-600">{p.category ?? '—'}</td>
                 <td class="px-4 py-3 text-right font-medium text-slate-900">{formatMoney(p.price, p.currency)}</td>

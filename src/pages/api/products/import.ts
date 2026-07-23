@@ -43,6 +43,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
           stockQty: row.stockQty,
           brand: row.brand,
           barcode: row.barcode,
+          images: row.images,
+          files: row.files,
           externalId: row.externalId,
           source: row.source,
           updatedAt: now,

@@ -45,6 +45,8 @@ export const products = sqliteTable(
     lowStockThreshold: real('low_stock_threshold').notNull().default(0),
     brand: text('brand'),
     barcode: text('barcode'), // EAN
+    images: text('images'), // URL-uri poze, separate cu '#'
+    files: text('files'), // URL-uri fise tehnice (PDF), separate cu '#'
     // Sursa: 'manual' sau numele feed-ului de import (faza 2)
     source: text('source').notNull().default('manual'),
     externalId: text('external_id'), // id-ul produsului in feed-ul extern

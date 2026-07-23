@@ -22,12 +22,28 @@ export interface FeedRaw {
   ErpID?: string | number;
   EAN?: string | number;
   OVERLAY2?: string;
+  File?: string;
+  AddImages?: string;
 }
 
 export interface MapOptions {
   priceField?: PriceField;
   vatRate?: number;
   source?: string;
+  /** Baza pentru caile relative din <File> (fise tehnice). */
+  fileBaseUrl?: string;
+}
+
+/** Baza implicita pentru fisele tehnice (cai relative /userfiles/...). */
+export const DEFAULT_FILE_BASE = 'https://b2b.spotvisionelectric.ro';
+
+/** Sparge o valoare multi-URL (separator '#'), face caile relative absolute. */
+function splitUrls(v: unknown, base = ''): string[] {
+  return str(v)
+    .split('#')
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map((s) => (base && s.startsWith('/') ? base + s : s));
 }
 
 const parser = new XMLParser({
@@ -69,6 +85,8 @@ export function isHeaderRow(p: FeedRaw): boolean {
 export function mapFeedProduct(p: FeedRaw, opts: MapOptions = {}): NewProduct {
   const priceField = opts.priceField ?? 'PRET_A';
   const price = num(p[priceField]);
+  const images = splitUrls(p.AddImages);
+  const files = splitUrls(p.File, opts.fileBaseUrl ?? DEFAULT_FILE_BASE);
   return {
     sku: str(p.Product_Code),
     name: str(p.Product_Name) || str(p.Product_Code),
@@ -83,6 +101,8 @@ export function mapFeedProduct(p: FeedRaw, opts: MapOptions = {}): NewProduct {
     lowStockThreshold: 0,
     brand: str(p.BrandName) || null,
     barcode: str(p.EAN) || null,
+    images: images.length ? images.join('#') : null,
+    files: files.length ? files.join('#') : null,
     source: opts.source ?? 'spotvision-b2b',
     externalId: str(p.Product_ID) || null,
   };
