@@ -72,11 +72,21 @@ export const POST: APIRoute = async ({ request, locals }) => {
   return json({ processed });
 };
 
-// Ping simplu: total produse din feed (pentru statistici)
+// Diagnostic: total produse + cate au poze / fise tehnice
 export const GET: APIRoute = async ({ locals }) => {
   const db = getDb(locals.runtime.env.DB);
   const [row] = await db
-    .select({ n: sql<number>`count(*)`, feed: sql<number>`sum(case when source <> 'manual' then 1 else 0 end)` })
+    .select({
+      total: sql<number>`count(*)`,
+      dinFeed: sql<number>`sum(case when source <> 'manual' then 1 else 0 end)`,
+      cuPoze: sql<number>`sum(case when images is not null and images <> '' then 1 else 0 end)`,
+      cuFise: sql<number>`sum(case when files is not null and files <> '' then 1 else 0 end)`,
+    })
     .from(products);
-  return json(row);
+  const [sample] = await db
+    .select({ sku: products.sku, images: products.images })
+    .from(products)
+    .where(sql`images is not null and images <> ''`)
+    .limit(1);
+  return json({ ...row, exempluPoza: sample?.images?.split('#')[0] ?? null, exempluSku: sample?.sku ?? null });
 };
