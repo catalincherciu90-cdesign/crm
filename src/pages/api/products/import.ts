@@ -12,15 +12,38 @@ const SUB_BATCH = 100;
  * POST /api/products/import
  * Importa un chunk de produse (upsert dupa SKU). Clientul trimite feed-ul pe bucati
  * ca sa afiseze progres si sa evite limitele de request.
- * body: { items: NewProduct[] }
+ * body: { items: NewProduct[], ensure?: boolean }
  * raspuns: { processed }
  */
+
+// Coloane care pot lipsi pe baze vechi; le asiguram inainte de import (self-heal).
+const ENSURE_COLUMNS = [
+  `ALTER TABLE products ADD COLUMN list_price REAL NOT NULL DEFAULT 0`,
+  `ALTER TABLE products ADD COLUMN price_a REAL NOT NULL DEFAULT 0`,
+  `ALTER TABLE products ADD COLUMN price_b REAL NOT NULL DEFAULT 0`,
+  `ALTER TABLE products ADD COLUMN brand TEXT`,
+  `ALTER TABLE products ADD COLUMN barcode TEXT`,
+  `ALTER TABLE products ADD COLUMN images TEXT`,
+  `ALTER TABLE products ADD COLUMN files TEXT`,
+];
+
 export const POST: APIRoute = async ({ request, locals }) => {
   const db = getDb(locals.runtime.env.DB);
-  const body = (await request.json().catch(() => ({}))) as { items?: NewProduct[] };
+  const body = (await request.json().catch(() => ({}))) as { items?: NewProduct[]; ensure?: boolean };
   const items = Array.isArray(body.items) ? body.items : [];
 
   if (items.length === 0) return badRequest('Niciun produs de importat in acest chunk.');
+
+  // La primul chunk, asiguram ca toate coloanele exista (ignoram "duplicate column")
+  if (body.ensure) {
+    for (const stmt of ENSURE_COLUMNS) {
+      try {
+        await locals.runtime.env.DB.prepare(stmt).run();
+      } catch {
+        /* coloana exista deja */
+      }
+    }
+  }
 
   // Ignoram randurile fara SKU (cheia de upsert)
   const valid = items.filter((p) => p.sku && p.sku.trim());

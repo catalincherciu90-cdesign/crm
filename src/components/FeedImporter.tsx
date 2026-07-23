@@ -86,7 +86,7 @@ export default function FeedImporter({ sources }: Props) {
         const res = await fetch('/api/products/import', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ items: chunk }),
+          body: JSON.stringify({ items: chunk, ensure: i === 0 }),
         });
         const data = (await res.json()) as { processed?: number; error?: string };
         if (!res.ok) throw new Error(data.error || `Chunk ${i} a eșuat.`);
