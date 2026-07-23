@@ -130,12 +130,13 @@ export default function FeedImporter({ sources }: Props) {
             <input className={inputCls + ' mt-1'} value={source} onChange={(e) => setSource(e.target.value)} />
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-600">Listă de preț importată</label>
+            <label className="block text-xs font-medium text-slate-600">Preț de vânzare (în oferte)</label>
             <select className={inputCls + ' mt-1'} value={priceField} onChange={(e) => setPriceField(e.target.value as PriceField)}>
               <option value="PRET_A">PREȚ A</option>
               <option value="PRET_B">PREȚ B</option>
               <option value="PRET_LISTA">PREȚ LISTĂ</option>
             </select>
+            <p className="mt-1 text-[11px] leading-tight text-slate-400">Toate prețurile (A, B, listă) se importă. Acesta e cel folosit implicit în oferte.</p>
           </div>
           <div>
             <label className="block text-xs font-medium text-slate-600">TVA implicit (%)</label>
@@ -183,15 +184,16 @@ export default function FeedImporter({ sources }: Props) {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="border-b border-slate-200 text-left text-xs uppercase text-slate-500">
-                <tr><th className="py-2">SKU</th><th className="py-2">Nume</th><th className="py-2">Brand</th><th className="py-2 text-right">Preț</th><th className="py-2 text-right">Stoc</th></tr>
+                <tr><th className="py-2">SKU</th><th className="py-2">Nume</th><th className="py-2 text-right">Preț A</th><th className="py-2 text-right">Preț B</th><th className="py-2 text-right">Listă</th><th className="py-2 text-right">Stoc</th></tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {preview.map((p, i) => (
                   <tr key={i}>
                     <td className="py-1.5 font-mono text-xs text-slate-500">{p.sku}</td>
                     <td className="py-1.5 text-slate-800">{p.name}</td>
-                    <td className="py-1.5 text-slate-500">{p.brand ?? '—'}</td>
-                    <td className="py-1.5 text-right text-slate-700">{formatMoney(p.price ?? 0)}</td>
+                    <td className="py-1.5 text-right text-slate-700">{formatMoney(p.priceA ?? 0)}</td>
+                    <td className="py-1.5 text-right text-slate-700">{formatMoney(p.priceB ?? 0)}</td>
+                    <td className="py-1.5 text-right text-slate-400">{formatMoney(p.listPrice ?? 0)}</td>
                     <td className="py-1.5 text-right text-slate-700">{p.stockQty}</td>
                   </tr>
                 ))}
