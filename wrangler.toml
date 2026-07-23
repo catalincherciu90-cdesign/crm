@@ -8,5 +8,5 @@ pages_build_output_dir = "./dist"
 [[d1_databases]]
 binding = "DB"
 database_name = "crm-db"
-database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+database_id = "ad4c0c09-e8a9-4208-9e4e-6126f50feda0"
 migrations_dir = "migrations"
