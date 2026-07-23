@@ -1,0 +1,39 @@
+---
+import Layout from '@/layouts/Layout.astro';
+import FeedImporter from '@/components/FeedImporter.tsx';
+import { getDb } from '@/db';
+import { feedSources } from '@/db/schema';
+
+export const prerender = false;
+
+const db = getDb(Astro.locals.runtime.env.DB);
+const sources = await db.select().from(feedSources);
+---
+
+<Layout title="Import feed">
+  <div class="mb-6">
+    <a href="/products" class="text-sm text-indigo-600 hover:underline">← Produse</a>
+    <h1 class="mt-2 text-2xl font-bold text-slate-900">Import product feed</h1>
+    <p class="text-sm text-slate-500">
+      Sincronizează catalogul de produse și stocurile dintr-un feed XML. Produsele se actualizează după SKU (upsert).
+    </p>
+  </div>
+
+  {sources.length > 0 && (
+    <div class="mb-6 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <h2 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Surse configurate</h2>
+      <ul class="space-y-1 text-sm">
+        {sources.map((s) => (
+          <li class="flex flex-wrap items-center justify-between gap-2">
+            <span class="font-medium text-slate-800">{s.name}</span>
+            <span class="text-xs text-slate-400">
+              {s.lastSyncAt ? `ultima sincronizare: ${s.lastSyncAt} · ${s.lastCount} produse` : 'nesincronizat încă'}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )}
+
+  <FeedImporter client:load sources={sources} />
+</Layout>

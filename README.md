@@ -16,9 +16,21 @@ Construit pe stack-ul echipei: **Astro (SSR) + Cloudflare Pages + D1 + Drizzle O
   - pagină de ofertă printabilă (**Print → PDF**)
 - **Dashboard** — nr. clienți/produse/oferte, valoare pipeline, oferte recente, alerte stoc scăzut
 
-## Pregătit pentru Faza 2 — Product Feed
+## Faza 2 — Product Feed ✅
 
-Tabela `products` are câmpurile `source` și `external_id`, iar SKU-ul e cheie unică — un import de feed (XML / CSV / Google Merchant) va face **upsert** direct în catalog fără migrare de schemă.
+Import de produse & stocuri dintr-un feed XML, cu **upsert după SKU** (produsele existente se actualizează, cele noi se adaugă).
+
+- Pagina **Produse → Import feed** (`/products/import`)
+- Două surse: **descărcare din URL** (rulează pe server / Cloudflare) sau **fișier XML** local
+- Alegi **lista de preț** importată (`PREȚ A` / `PREȚ B` / `PREȚ LISTĂ`) și **TVA-ul** implicit
+- Import pe **chunk-uri** cu bară de progres (testat pe feed real de ~5.600 produse)
+- La upsert se actualizează doar câmpurile din feed (nume, categorie, preț, stoc, brand, EAN); câmpurile setate manual (unitate, TVA, prag stoc scăzut, descriere) se **păstrează**
+- Sursele configurate + ultima sincronizare sunt salvate în tabela `feed_sources`
+
+**Format feed suportat** (Spotvision B2B): root `<products>` → `<product>` cu
+`Product_Code` (SKU), `Product_Name`, `Category`, `BrandName`, `PRET_A/PRET_B/PRET_LISTA`,
+`Stock`, `Product_ID` (id extern), `EAN`. Primul rând-antet din feed e ignorat automat.
+Maparea e în [`src/lib/feed.ts`](src/lib/feed.ts) — ușor de adaptat pentru alte formate.
 
 ## Structură
 

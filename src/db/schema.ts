@@ -37,12 +37,15 @@ export const products = sqliteTable(
     description: text('description'),
     category: text('category'),
     unit: text('unit').notNull().default('buc'), // buc, kg, m, ora...
-    price: real('price').notNull().default(0), // pret unitar fara TVA
+    price: real('price').notNull().default(0), // pret unitar de vanzare, fara TVA
+    listPrice: real('list_price').notNull().default(0), // pret de lista (referinta)
     vatRate: real('vat_rate').notNull().default(19), // % TVA implicit
     currency: text('currency').notNull().default('RON'),
     stockQty: real('stock_qty').notNull().default(0),
     lowStockThreshold: real('low_stock_threshold').notNull().default(0),
-    // Sursa: 'manual' sau numele feed-ului de import (pregatit pentru faza 2)
+    brand: text('brand'),
+    barcode: text('barcode'), // EAN
+    // Sursa: 'manual' sau numele feed-ului de import (faza 2)
     source: text('source').notNull().default('manual'),
     externalId: text('external_id'), // id-ul produsului in feed-ul extern
     createdAt: text('created_at')
@@ -118,6 +121,19 @@ export const offerItems = sqliteTable(
   (t) => [index('idx_offer_items_offer').on(t.offerId)],
 );
 
+// ---------- Surse de feed (product feed) ----------
+export const feedSources = sqliteTable('feed_sources', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  name: text('name').notNull().unique(), // ex. 'spotvision-b2b'
+  url: text('url').notNull(),
+  priceField: text('price_field').notNull().default('PRET_A'), // ce lista de pret se importa
+  lastSyncAt: text('last_sync_at'),
+  lastCount: integer('last_count').notNull().default(0),
+  createdAt: text('created_at')
+    .notNull()
+    .default(sql`(datetime('now'))`),
+});
+
 export type Client = typeof clients.$inferSelect;
 export type NewClient = typeof clients.$inferInsert;
 export type Product = typeof products.$inferSelect;
@@ -126,3 +142,5 @@ export type Offer = typeof offers.$inferSelect;
 export type NewOffer = typeof offers.$inferInsert;
 export type OfferItem = typeof offerItems.$inferSelect;
 export type NewOfferItem = typeof offerItems.$inferInsert;
+export type FeedSource = typeof feedSources.$inferSelect;
+export type NewFeedSource = typeof feedSources.$inferInsert;
