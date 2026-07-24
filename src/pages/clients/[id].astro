@@ -1,15 +1,16 @@
 ---
-import { eq } from 'drizzle-orm';
+import { eq, asc } from 'drizzle-orm';
 import Layout from '@/layouts/Layout.astro';
 import ClientForm from '@/components/ClientForm.astro';
 import { getDb } from '@/db';
-import { clients } from '@/db/schema';
+import { clients, agents } from '@/db/schema';
 
 export const prerender = false;
 
 const id = Number(Astro.params.id);
 const db = getDb(Astro.locals.runtime.env.DB);
 const [client] = await db.select().from(clients).where(eq(clients.id, id));
+const agentList = await db.select().from(agents).orderBy(asc(agents.name));
 
 if (!client) return Astro.redirect('/clients');
 
@@ -28,7 +29,7 @@ const error = Astro.url.searchParams.get('error');
     )}
 
     <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-      <ClientForm client={client} />
+      <ClientForm client={client} agents={agentList} />
     </div>
 
     <div class="mt-4 flex justify-end">

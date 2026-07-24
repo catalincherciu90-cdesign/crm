@@ -1,0 +1,65 @@
+---
+import { eq, desc, sql } from 'drizzle-orm';
+import Layout from '@/layouts/Layout.astro';
+import AgentForm from '@/components/AgentForm.astro';
+import { getDb } from '@/db';
+import { agents, clients } from '@/db/schema';
+
+export const prerender = false;
+
+const id = Number(Astro.params.id);
+const db = getDb(Astro.locals.runtime.env.DB);
+const [agent] = await db.select().from(agents).where(eq(agents.id, id));
+if (!agent) return Astro.redirect('/agents');
+
+const [{ n: clientCount }] = await db
+  .select({ n: sql<number>`count(*)` })
+  .from(clients)
+  .where(eq(clients.agentId, id));
+const agentClients = await db
+  .select({ id: clients.id, name: clients.name, priceList: clients.priceList, active: clients.active })
+  .from(clients)
+  .where(eq(clients.agentId, id))
+  .orderBy(desc(clients.id))
+  .limit(15);
+---
+
+<Layout title={agent.name}>
+  <div class="mx-auto max-w-2xl">
+    <a href="/agents" class="text-sm text-indigo-600 hover:underline">← Agenți</a>
+    <h1 class="mt-2 mb-6 text-2xl font-bold text-slate-900">Editează agent</h1>
+
+    <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+      <AgentForm agent={agent} />
+    </div>
+
+    <div class="mt-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div class="mb-3 flex items-center justify-between">
+        <h2 class="text-xs font-semibold uppercase tracking-wide text-slate-400">Clienți alocați ({clientCount})</h2>
+        {clientCount > 0 && <a href={`/clients?agent=${id}`} class="text-sm text-indigo-600 hover:underline">Vezi toți →</a>}
+      </div>
+      {agentClients.length === 0 ? (
+        <p class="text-sm text-slate-400">Niciun client alocat acestui agent.</p>
+      ) : (
+        <ul class="divide-y divide-slate-100">
+          {agentClients.map((c) => (
+            <li>
+              <a href={`/clients/${c.id}`} class="flex items-center justify-between py-2 text-sm hover:opacity-80">
+                <span class="font-medium text-slate-800">{c.name}</span>
+                <span class="text-xs text-slate-400">{c.priceList ? c.priceList.replace('PRET_', 'Preț ') : ''}</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+
+    <div class="mt-4 flex justify-end">
+      <form method="POST" action="/api/agents" onsubmit={`return confirm('Ștergi agentul „${agent.name.replace(/'/g, '')}”? Clienții lui rămân, dar fără agent alocat.')`}>
+        <input type="hidden" name="id" value={id} />
+        <input type="hidden" name="delete" value="1" />
+        <button type="submit" class="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-100">🗑 Șterge agent</button>
+      </form>
+    </div>
+  </div>
+</Layout>

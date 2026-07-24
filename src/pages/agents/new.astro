@@ -1,0 +1,15 @@
+---
+import Layout from '@/layouts/Layout.astro';
+import AgentForm from '@/components/AgentForm.astro';
+export const prerender = false;
+---
+
+<Layout title="Agent nou">
+  <div class="mx-auto max-w-2xl">
+    <a href="/agents" class="text-sm text-indigo-600 hover:underline">← Agenți</a>
+    <h1 class="mt-2 mb-6 text-2xl font-bold text-slate-900">Agent nou</h1>
+    <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+      <AgentForm />
+    </div>
+  </div>
+</Layout>

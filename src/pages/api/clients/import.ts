@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import { getDb } from '@/db';
-import { clients, type NewClient } from '@/db/schema';
+import { clients, agents, type NewClient } from '@/db/schema';
 import { json, badRequest } from '@/lib/http';
 
 export const prerender = false;
@@ -16,6 +16,7 @@ interface IncomingClient {
   address?: string;
   priceList?: string;
   active?: boolean;
+  agent?: string;
   notes?: string;
 }
 
@@ -35,12 +36,34 @@ export const POST: APIRoute = async ({ request, locals }) => {
   for (const stmt of [
     `ALTER TABLE clients ADD COLUMN price_list TEXT`,
     `ALTER TABLE clients ADD COLUMN active INTEGER NOT NULL DEFAULT 1`,
+    `CREATE TABLE IF NOT EXISTS agents (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, email TEXT,
+      phone TEXT, active INTEGER NOT NULL DEFAULT 1, notes TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')))`,
+    `ALTER TABLE clients ADD COLUMN agent_id INTEGER REFERENCES agents (id)`,
   ]) {
     try {
       await locals.runtime.env.DB.prepare(stmt).run();
     } catch {
       /* exista deja */
     }
+  }
+
+  // Agentii de vanzari din acest lot: creeaza-i pe cei noi si mapeaza nume -> id
+  const agentNames = [
+    ...new Set(
+      incoming
+        .map((c) => (c.agent || '').replace(/\s+/g, ' ').trim())
+        .filter(Boolean),
+    ),
+  ];
+  const agentIdByName = new Map<string, number>();
+  if (agentNames.length > 0) {
+    for (const n of agentNames) {
+      await db.insert(agents).values({ name: n }).onConflictDoNothing();
+    }
+    const rows = await db.select({ id: agents.id, name: agents.name }).from(agents);
+    rows.forEach((a) => agentIdByName.set(a.name, a.id));
   }
 
   // Dedupe pe: email, CIF (taxId) si nume (normalizat) — fisierele ERP n-au email
@@ -82,6 +105,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       address: (c.address || '').trim() || null,
       priceList: (c.priceList || '').trim() || null,
       active: c.active !== false, // implicit activ
+      agentId: agentIdByName.get((c.agent || '').replace(/\s+/g, ' ').trim()) ?? null,
       notes: (c.notes || '').trim() || null,
     });
   }

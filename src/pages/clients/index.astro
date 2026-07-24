@@ -11,6 +11,7 @@ const db = getDb(Astro.locals.runtime.env.DB);
 
 const q = (Astro.url.searchParams.get('q') || '').trim();
 const activeParam = Astro.url.searchParams.get('active'); // '1' | '0' | null
+const agentParam = Number(Astro.url.searchParams.get('agent')) || 0;
 const page = Math.max(1, Number(Astro.url.searchParams.get('page')) || 1);
 
 const conds: SQL[] = [];
@@ -28,6 +29,7 @@ if (q) {
 }
 if (activeParam === '1') conds.push(eq(clients.active, true));
 if (activeParam === '0') conds.push(eq(clients.active, false));
+if (agentParam) conds.push(eq(clients.agentId, agentParam));
 const where = conds.length ? and(...conds) : undefined;
 
 // Totaluri globale (neafectate de filtre)
@@ -50,7 +52,7 @@ const rows = await db
 
 const totalPages = Math.max(1, Math.ceil(total / PER_PAGE));
 const buildUrl = (params: Record<string, string | number | undefined>) => {
-  const merged = { q, active: activeParam ?? undefined, ...params };
+  const merged = { q, active: activeParam ?? undefined, agent: agentParam || undefined, ...params };
   const sp = new URLSearchParams();
   for (const [k, v] of Object.entries(merged)) {
     if (v !== undefined && v !== '' && v !== null && !(k === 'page' && Number(v) === 1)) sp.set(k, String(v));
@@ -64,7 +66,7 @@ const filters = [
   { label: 'Activi', val: '1', on: activeParam === '1', n: counts.active },
   { label: 'Inactivi', val: '0', on: activeParam === '0', n: counts.inactive },
 ];
-const filtered = Boolean(q || activeParam);
+const filtered = Boolean(q || activeParam || agentParam);
 const deletedN = Number(Astro.url.searchParams.get('deleted')) || 0;
 const skippedN = Number(Astro.url.searchParams.get('skipped')) || 0;
 ---
@@ -113,6 +115,7 @@ const skippedN = Number(Astro.url.searchParams.get('skipped')) || 0;
         <input type="hidden" name="all" value="1" />
         {q && <input type="hidden" name="q" value={q} />}
         {activeParam && <input type="hidden" name="active" value={activeParam} />}
+        {agentParam > 0 && <input type="hidden" name="agent" value={agentParam} />}
         <button type="submit" class="rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50">Șterge toți cei {total} {filtered ? '(din filtru)' : ''}</button>
       </form>
     </div>

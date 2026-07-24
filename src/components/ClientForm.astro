@@ -1,9 +1,10 @@
 ---
-import type { Client } from '@/db/schema';
+import type { Client, Agent } from '@/db/schema';
 interface Props {
   client?: Client;
+  agents?: Agent[];
 }
-const { client } = Astro.props;
+const { client, agents: agentList = [] } = Astro.props;
 const field = 'mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500';
 const label = 'block text-xs font-medium text-slate-600';
 ---
@@ -48,6 +49,15 @@ const label = 'block text-xs font-medium text-slate-600';
       <select class={field} id="active" name="active">
         <option value="1" selected={client ? client.active : true}>Activ</option>
         <option value="0" selected={client ? !client.active : false}>Inactiv</option>
+      </select>
+    </div>
+    <div>
+      <label class={label} for="agentId">Agent de vânzări</label>
+      <select class={field} id="agentId" name="agentId">
+        <option value="" selected={!client?.agentId}>— fără agent —</option>
+        {agentList.map((a) => (
+          <option value={a.id} selected={client?.agentId === a.id}>{a.name}</option>
+        ))}
       </select>
     </div>
   </div>

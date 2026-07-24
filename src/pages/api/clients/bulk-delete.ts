@@ -41,6 +41,8 @@ export const POST: APIRoute = async ({ request, locals, redirect }) => {
     }
     if (activeParam === '1') conds.push(eq(clients.active, true));
     if (activeParam === '0') conds.push(eq(clients.active, false));
+    const agentParam = Number(reqStr(fd, 'agent')) || 0;
+    if (agentParam) conds.push(eq(clients.agentId, agentParam));
     const where = conds.length ? and(...conds) : undefined;
     const rows = await db.select({ id: clients.id }).from(clients).where(where);
     targetIds = rows.map((r) => r.id);

@@ -9,6 +9,7 @@ export interface MappedClient {
   address: string;
   priceList: string; // '' | 'PRET_A' | 'PRET_B'
   active: boolean;
+  agent: string; // numele agentului de vanzari (din ERP), '' daca lipseste
   notes: string;
 }
 
@@ -92,13 +93,11 @@ export function mapClientRow(
     .filter(Boolean)
     .join(', ');
 
-  // Note: combina notele + info ERP utila (agent, reg. com.)
+  // Agentul de vanzari — camp separat (tab Agenti); "FARA AGENT" = fara
   const agentRaw = val('agent');
   const agent = /^fara\s*agent$/i.test(agentRaw) ? '' : agentRaw;
   const regCom = val('regCom');
-  const notes = [val('notes'), agent && `Agent: ${agent}`, regCom && `Reg. com.: ${regCom}`]
-    .filter(Boolean)
-    .join(' · ');
+  const notes = [val('notes'), regCom && `Reg. com.: ${regCom}`].filter(Boolean).join(' · ');
 
   return {
     name,
@@ -110,6 +109,7 @@ export function mapClientRow(
     priceList: normPriceList(val('priceList')),
     // Daca exista coloana "Active" -> urmeaza valoarea; altfel presupunem activ.
     active: map.active ? isActiveValue(val('active')) : true,
+    agent,
     notes,
   };
 }

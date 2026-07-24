@@ -20,6 +20,12 @@ const STATEMENTS: string[] = [
   `CREATE INDEX IF NOT EXISTS idx_clients_name ON clients (name)`,
   `ALTER TABLE clients ADD COLUMN price_list TEXT`,
   `ALTER TABLE clients ADD COLUMN active INTEGER NOT NULL DEFAULT 1`,
+  `CREATE TABLE IF NOT EXISTS agents (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, email TEXT,
+    phone TEXT, active INTEGER NOT NULL DEFAULT 1, notes TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')))`,
+  `ALTER TABLE clients ADD COLUMN agent_id INTEGER REFERENCES agents (id)`,
+  `CREATE INDEX IF NOT EXISTS idx_clients_agent ON clients (agent_id)`,
 
   `CREATE TABLE IF NOT EXISTS products (
     id INTEGER PRIMARY KEY AUTOINCREMENT, sku TEXT NOT NULL UNIQUE, name TEXT NOT NULL,

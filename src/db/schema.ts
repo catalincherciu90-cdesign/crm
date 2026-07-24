@@ -8,6 +8,19 @@ import { sql } from 'drizzle-orm';
  * in stratul de business. Cantitatile de stoc: `real` ca sa suporte si unitati fractionare (kg, m).
  */
 
+// ---------- Agenti de vanzari ----------
+export const agents = sqliteTable('agents', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  name: text('name').notNull().unique(),
+  email: text('email'),
+  phone: text('phone'),
+  active: integer('active', { mode: 'boolean' }).notNull().default(true),
+  notes: text('notes'),
+  createdAt: text('created_at')
+    .notNull()
+    .default(sql`(datetime('now'))`),
+});
+
 // ---------- Clienti ----------
 export const clients = sqliteTable(
   'clients',
@@ -21,6 +34,7 @@ export const clients = sqliteTable(
     address: text('address'),
     priceList: text('price_list'), // 'PRET_A' | 'PRET_B' — lista de pret a clientului
     active: integer('active', { mode: 'boolean' }).notNull().default(true),
+    agentId: integer('agent_id').references(() => agents.id),
     notes: text('notes'),
     createdAt: text('created_at')
       .notNull()
@@ -150,3 +164,5 @@ export type OfferItem = typeof offerItems.$inferSelect;
 export type NewOfferItem = typeof offerItems.$inferInsert;
 export type FeedSource = typeof feedSources.$inferSelect;
 export type NewFeedSource = typeof feedSources.$inferInsert;
+export type Agent = typeof agents.$inferSelect;
+export type NewAgent = typeof agents.$inferInsert;

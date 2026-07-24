@@ -1,0 +1,45 @@
+---
+import type { Agent } from '@/db/schema';
+interface Props {
+  agent?: Agent;
+}
+const { agent } = Astro.props;
+const field = 'mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500';
+const label = 'block text-xs font-medium text-slate-600';
+---
+
+<form method="POST" action="/api/agents" class="space-y-4">
+  {agent && <input type="hidden" name="id" value={agent.id} />}
+  <div class="grid gap-4 sm:grid-cols-2">
+    <div>
+      <label class={label} for="name">Nume *</label>
+      <input class={field} id="name" name="name" required value={agent?.name ?? ''} />
+    </div>
+    <div>
+      <label class={label} for="email">Email</label>
+      <input class={field} id="email" name="email" type="email" value={agent?.email ?? ''} />
+      <p class="mt-1 text-[11px] text-slate-400">Va fi folosit pentru contul de acces al agentului.</p>
+    </div>
+    <div>
+      <label class={label} for="phone">Telefon</label>
+      <input class={field} id="phone" name="phone" value={agent?.phone ?? ''} />
+    </div>
+    <div>
+      <label class={label} for="active">Status</label>
+      <select class={field} id="active" name="active">
+        <option value="1" selected={agent ? agent.active : true}>Activ</option>
+        <option value="0" selected={agent ? !agent.active : false}>Inactiv</option>
+      </select>
+    </div>
+  </div>
+  <div>
+    <label class={label} for="notes">Note</label>
+    <textarea class={field} id="notes" name="notes" rows="3">{agent?.notes ?? ''}</textarea>
+  </div>
+  <div class="flex gap-3">
+    <button type="submit" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">
+      {agent ? 'Salvează' : 'Adaugă agent'}
+    </button>
+    <a href="/agents" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50">Anulează</a>
+  </div>
+</form>
