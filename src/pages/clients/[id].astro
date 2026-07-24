@@ -12,14 +12,30 @@ const db = getDb(Astro.locals.runtime.env.DB);
 const [client] = await db.select().from(clients).where(eq(clients.id, id));
 
 if (!client) return Astro.redirect('/clients');
+
+const error = Astro.url.searchParams.get('error');
 ---
 
 <Layout title={`Editează ${client.name}`}>
   <div class="mx-auto max-w-2xl">
     <a href="/clients" class="text-sm text-indigo-600 hover:underline">← Clienți</a>
     <h1 class="mt-2 mb-6 text-2xl font-bold text-slate-900">Editează client</h1>
+
+    {error === 'has_offers' && (
+      <div class="mb-4 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        Nu poți șterge acest client — are oferte asociate. Șterge întâi ofertele lui, apoi clientul.
+      </div>
+    )}
+
     <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
       <ClientForm client={client} />
+    </div>
+
+    <div class="mt-4 flex justify-end">
+      <form method="POST" action="/api/clients/delete" onsubmit={`return confirm('Ștergi clientul „${client.name.replace(/'/g, '')}”? Acțiunea nu poate fi anulată.')`}>
+        <input type="hidden" name="id" value={id} />
+        <button type="submit" class="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-100">🗑 Șterge client</button>
+      </form>
     </div>
   </div>
 </Layout>

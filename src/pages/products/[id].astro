@@ -45,7 +45,13 @@ const prices = [
         {p.category && <> · {p.category}</>}
       </p>
     </div>
-    <a href={`/products/${id}/edit`} class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">✏️ Editează</a>
+    <div class="flex gap-2">
+      <a href={`/products/${id}/edit`} class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">✏️ Editează</a>
+      <form method="POST" action="/api/products/delete" onsubmit={`return confirm('Ștergi produsul „${p.name.replace(/'/g, '')}”? Acțiunea nu poate fi anulată.')`}>
+        <input type="hidden" name="id" value={id} />
+        <button type="submit" class="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-100">🗑 Șterge</button>
+      </form>
+    </div>
   </div>
 
   <div class="grid gap-6 lg:grid-cols-2">
