@@ -43,9 +43,15 @@ export const POST: APIRoute = async ({ request, locals }) => {
     }
   }
 
-  // Email-urile existente (pentru dedupe)
-  const existing = await db.select({ email: clients.email }).from(clients);
-  const seen = new Set(existing.map((r) => (r.email || '').trim().toLowerCase()).filter(Boolean));
+  // Dedupe pe: email, CIF (taxId) si nume (normalizat) — fisierele ERP n-au email
+  const existing = await db
+    .select({ email: clients.email, taxId: clients.taxId, name: clients.name })
+    .from(clients);
+  const seenEmail = new Set(existing.map((r) => (r.email || '').trim().toLowerCase()).filter(Boolean));
+  const normTax = (s: string) => s.toLowerCase().replace(/^ro/, '').replace(/[^0-9a-z]/g, '');
+  const seenTax = new Set(existing.map((r) => normTax(r.taxId || '')).filter(Boolean));
+  const normName = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim();
+  const seenName = new Set(existing.map((r) => normName(r.name || '')).filter(Boolean));
 
   const rows: NewClient[] = [];
   let skipped = 0;
@@ -57,12 +63,16 @@ export const POST: APIRoute = async ({ request, locals }) => {
       continue;
     }
     const email = (c.email || '').trim();
-    const key = email.toLowerCase();
-    if (key && seen.has(key)) {
+    const emailKey = email.toLowerCase();
+    const taxKey = normTax(c.taxId || '');
+    const nameKey = normName(name);
+    if ((emailKey && seenEmail.has(emailKey)) || (taxKey && seenTax.has(taxKey)) || seenName.has(nameKey)) {
       skipped++;
       continue;
     }
-    if (key) seen.add(key);
+    if (emailKey) seenEmail.add(emailKey);
+    if (taxKey) seenTax.add(taxKey);
+    seenName.add(nameKey);
     rows.push({
       name,
       company: (c.company || '').trim() || null,

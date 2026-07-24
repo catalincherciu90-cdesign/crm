@@ -25,7 +25,8 @@ export function norm(s: string): string {
 
 type Field =
   | 'name' | 'firstName' | 'lastName' | 'company' | 'email'
-  | 'phone' | 'taxId' | 'address' | 'city' | 'county' | 'country' | 'priceList' | 'active' | 'notes';
+  | 'phone' | 'taxId' | 'address' | 'city' | 'county' | 'country'
+  | 'priceList' | 'active' | 'agent' | 'regCom' | 'notes';
 
 const ALIASES: Record<Field, string[]> = {
   name: ['name', 'nume', 'denumire', 'numeclient', 'client', 'fullname'],
@@ -34,13 +35,15 @@ const ALIASES: Record<Field, string[]> = {
   company: ['companyname', 'firma', 'companie', 'company', 'societate', 'numefirma'],
   email: ['emailaddress', 'email', 'mail', 'adresaemail', 'eadresa'],
   phone: ['phone', 'telefon', 'tel', 'mobil', 'telefonmobil', 'phonenumber'],
-  taxId: ['cif', 'cui', 'codfiscal', 'taxid', 'vat', 'vatid'],
+  taxId: ['cif', 'cui', 'codfiscal', 'taxid', 'vat', 'vatid', 'cod'],
   address: ['address', 'adresa', 'strada'],
   city: ['city', 'oras', 'localitate'],
   county: ['county', 'judet'],
   country: ['country', 'tara'],
-  priceList: ['pricelist', 'listapret', 'listadepret', 'listpret'],
+  priceList: ['pricelist', 'listapret', 'listadepret', 'listpret', 'catpret', 'categoriepret', 'categoriapret'],
   active: ['active', 'activ', 'status', 'enabled'],
+  agent: ['agent', 'agentvanzari', 'agent2'],
+  regCom: ['registrul', 'regcom', 'nrregcom', 'nrrc'],
   notes: ['notes', 'note', 'observatii', 'mentiuni', 'comentarii'],
 };
 
@@ -69,11 +72,18 @@ export function resolveHeaders(headers: string[]): Partial<Record<Field, string>
 }
 
 /** Transforma un rand brut in client mapat. */
+/** Curata o valoare: trim, spatii duble -> unul, placeholdere ERP ("nedef.") -> gol. */
+function clean(v: string): string {
+  const s = v.replace(/\s+/g, ' ').trim();
+  if (/^nedef\.?$/i.test(s) || s === '-' || s === '.') return '';
+  return s;
+}
+
 export function mapClientRow(
   row: Record<string, unknown>,
   map: Partial<Record<Field, string>>,
 ): MappedClient {
-  const val = (f: Field) => (map[f] ? String(row[map[f]!] ?? '').trim() : '');
+  const val = (f: Field) => (map[f] ? clean(String(row[map[f]!] ?? '')) : '');
 
   let name = val('name');
   if (!name) name = [val('firstName'), val('lastName')].filter(Boolean).join(' ').trim();
@@ -81,6 +91,14 @@ export function mapClientRow(
   const address = [val('address'), val('city'), val('county'), val('country')]
     .filter(Boolean)
     .join(', ');
+
+  // Note: combina notele + info ERP utila (agent, reg. com.)
+  const agentRaw = val('agent');
+  const agent = /^fara\s*agent$/i.test(agentRaw) ? '' : agentRaw;
+  const regCom = val('regCom');
+  const notes = [val('notes'), agent && `Agent: ${agent}`, regCom && `Reg. com.: ${regCom}`]
+    .filter(Boolean)
+    .join(' · ');
 
   return {
     name,
@@ -92,7 +110,7 @@ export function mapClientRow(
     priceList: normPriceList(val('priceList')),
     // Daca exista coloana "Active" -> urmeaza valoarea; altfel presupunem activ.
     active: map.active ? isActiveValue(val('active')) : true,
-    notes: val('notes'),
+    notes,
   };
 }
 
