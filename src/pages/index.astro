@@ -2,7 +2,7 @@
 import { sql, desc, eq, lte, gt, and } from 'drizzle-orm';
 import Layout from '@/layouts/Layout.astro';
 import { getDb } from '@/db';
-import { clients, products, offers } from '@/db/schema';
+import { clients, products, offers, agents } from '@/db/schema';
 import { formatMoney, formatQty } from '@/lib/money';
 
 export const prerender = false;
@@ -24,6 +24,21 @@ const [pipeline] = await db
   .select({ v: sql<number>`coalesce(sum(total), 0)` })
   .from(offers)
   .where(sql`status in ('sent','accepted') AND ${offerAgentSql}`);
+
+// Target lunar (pentru agentul logat)
+let myTarget = 0;
+let myAchieved = 0;
+if (!isAdmin && user?.agentId) {
+  const [a] = await db.select({ t: agents.monthlyTarget }).from(agents).where(eq(agents.id, user.agentId));
+  myTarget = a?.t ?? 0;
+  const [achv] = await db
+    .select({ v: sql<number>`coalesce(sum(total), 0)` })
+    .from(offers)
+    .where(sql`status = 'accepted' AND issue_date >= date('now','start of month') AND ${offerAgentSql}`);
+  myAchieved = achv.v;
+}
+const myPct = myTarget > 0 ? Math.round((myAchieved / myTarget) * 100) : 0;
+const lunaCurenta = new Date().toLocaleDateString('ro-RO', { month: 'long', year: 'numeric' });
 
 const lowStock = await db
   .select()
@@ -86,6 +101,22 @@ const stats = [
       </a>
     ))}
   </div>
+
+  {!isAdmin && myTarget > 0 && (
+    <div class="mt-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div class="flex items-end justify-between">
+        <div>
+          <div class="text-xs font-semibold uppercase tracking-wide text-slate-400">🎯 Targetul meu · <span class="capitalize">{lunaCurenta}</span></div>
+          <div class="mt-1 text-2xl font-bold text-slate-900">{formatMoney(myAchieved)} <span class="text-base font-normal text-slate-400">/ {formatMoney(myTarget)}</span></div>
+        </div>
+        <div class={`text-2xl font-bold ${myPct >= 100 ? 'text-green-600' : 'text-indigo-700'}`}>{myPct}%</div>
+      </div>
+      <div class="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-slate-100">
+        <div class={`h-full ${myPct >= 100 ? 'bg-green-500' : myPct >= 60 ? 'bg-amber-500' : 'bg-indigo-500'}`} style={`width:${Math.min(myPct, 100)}%`}></div>
+      </div>
+      <p class="mt-2 text-xs text-slate-400">Realizat = oferte acceptate luna aceasta. {myPct >= 100 ? 'Target atins! 🎉' : `Mai ai ${formatMoney(myTarget - myAchieved)} până la target.`}</p>
+    </div>
+  )}
 
   <div class="mt-8 grid gap-6 lg:grid-cols-2">
     <!-- Oferte recente -->

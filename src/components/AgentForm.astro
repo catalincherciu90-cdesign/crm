@@ -31,6 +31,11 @@ const label = 'block text-xs font-medium text-slate-600';
         <option value="0" selected={agent ? !agent.active : false}>Inactiv</option>
       </select>
     </div>
+    <div>
+      <label class={label} for="monthlyTarget">Target lunar (RON, fără TVA)</label>
+      <input class={field} id="monthlyTarget" name="monthlyTarget" type="number" step="0.01" min="0" value={agent?.monthlyTarget ?? 0} />
+      <p class="mt-1 text-[11px] text-slate-400">Se compară cu totalul ofertelor acceptate din luna curentă.</p>
+    </div>
   </div>
   <div>
     <label class={label} for="notes">Note</label>

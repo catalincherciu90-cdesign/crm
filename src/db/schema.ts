@@ -15,6 +15,7 @@ export const agents = sqliteTable('agents', {
   email: text('email'),
   phone: text('phone'),
   active: integer('active', { mode: 'boolean' }).notNull().default(true),
+  monthlyTarget: real('monthly_target').notNull().default(0), // target lunar (RON, fara TVA)
   notes: text('notes'),
   createdAt: text('created_at')
     .notNull()

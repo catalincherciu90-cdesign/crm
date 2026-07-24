@@ -22,8 +22,9 @@ const STATEMENTS: string[] = [
   `ALTER TABLE clients ADD COLUMN active INTEGER NOT NULL DEFAULT 1`,
   `CREATE TABLE IF NOT EXISTS agents (
     id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, email TEXT,
-    phone TEXT, active INTEGER NOT NULL DEFAULT 1, notes TEXT,
-    created_at TEXT NOT NULL DEFAULT (datetime('now')))`,
+    phone TEXT, active INTEGER NOT NULL DEFAULT 1, monthly_target REAL NOT NULL DEFAULT 0,
+    notes TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')))`,
+  `ALTER TABLE agents ADD COLUMN monthly_target REAL NOT NULL DEFAULT 0`,
   `ALTER TABLE clients ADD COLUMN agent_id INTEGER REFERENCES agents (id)`,
   `CREATE INDEX IF NOT EXISTS idx_clients_agent ON clients (agent_id)`,
 

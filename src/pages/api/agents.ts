@@ -2,7 +2,7 @@ import type { APIRoute } from 'astro';
 import { eq } from 'drizzle-orm';
 import { getDb } from '@/db';
 import { agents, clients } from '@/db/schema';
-import { badRequest, reqStr } from '@/lib/http';
+import { badRequest, reqStr, numOr } from '@/lib/http';
 
 export const prerender = false;
 
@@ -38,8 +38,16 @@ export const POST: APIRoute = async ({ request, locals, redirect }) => {
     email: reqStr(fd, 'email') || null,
     phone: reqStr(fd, 'phone') || null,
     active: reqStr(fd, 'active') !== '0',
+    monthlyTarget: numOr(fd, 'monthlyTarget', 0),
     notes: reqStr(fd, 'notes') || null,
   };
+
+  // self-heal coloana target (baze mai vechi)
+  try {
+    await locals.runtime.env.DB.prepare(`ALTER TABLE agents ADD COLUMN monthly_target REAL NOT NULL DEFAULT 0`).run();
+  } catch {
+    /* exista deja */
+  }
 
   const idRaw = reqStr(fd, 'id');
   try {
