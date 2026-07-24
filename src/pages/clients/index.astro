@@ -30,6 +30,15 @@ if (activeParam === '1') conds.push(eq(clients.active, true));
 if (activeParam === '0') conds.push(eq(clients.active, false));
 const where = conds.length ? and(...conds) : undefined;
 
+// Totaluri globale (neafectate de filtre)
+const [counts] = await db
+  .select({
+    total: sql<number>`count(*)`,
+    active: sql<number>`sum(case when active = 1 then 1 else 0 end)`,
+    inactive: sql<number>`sum(case when active = 0 then 1 else 0 end)`,
+  })
+  .from(clients);
+
 const [{ total }] = await db.select({ total: sql<number>`count(*)` }).from(clients).where(where);
 const rows = await db
   .select()
@@ -51,17 +60,21 @@ const buildUrl = (params: Record<string, string | number | undefined>) => {
 };
 const pageUrl = (p: number) => buildUrl({ page: p });
 const filters = [
-  { label: 'Toți', val: undefined, on: !activeParam },
-  { label: 'Activi', val: '1', on: activeParam === '1' },
-  { label: 'Inactivi', val: '0', on: activeParam === '0' },
+  { label: 'Toți', val: undefined, on: !activeParam, n: counts.total },
+  { label: 'Activi', val: '1', on: activeParam === '1', n: counts.active },
+  { label: 'Inactivi', val: '0', on: activeParam === '0', n: counts.inactive },
 ];
+const filtered = Boolean(q || activeParam);
 ---
 
 <Layout title="Clienti">
   <div class="mb-6 flex items-center justify-between">
     <div>
       <h1 class="text-2xl font-bold text-slate-900">Clienți</h1>
-      <p class="text-sm text-slate-500">{total} clienți{q ? ` pentru „${q}”` : ''}.</p>
+      <p class="text-sm text-slate-500">
+        <span class="font-semibold text-slate-700">{counts.total}</span> clienți în total
+        {filtered && <> · {total} {q ? `pentru „${q}”` : ''} afișați</>}
+      </p>
     </div>
     <div class="flex gap-2">
       <a href="/clients/import" class="rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-700 hover:bg-indigo-100">↑ Import Excel</a>
@@ -80,7 +93,7 @@ const filters = [
   <div class="mb-5 flex gap-2">
     {filters.map((f) => (
       <a href={buildUrl({ active: f.val, page: 1 })} class={`rounded-full px-3 py-1 text-sm font-medium transition ${f.on ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 border border-slate-200 hover:border-indigo-300'}`}>
-        {f.label}
+        {f.label} ({f.n})
       </a>
     ))}
   </div>
