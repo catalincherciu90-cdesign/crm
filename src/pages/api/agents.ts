@@ -16,6 +16,16 @@ export const POST: APIRoute = async ({ request, locals, redirect }) => {
     const id = Number(reqStr(fd, 'id'));
     if (!id) return badRequest('Agent lipsă.');
     await db.update(clients).set({ agentId: null }).where(eq(clients.agentId, id));
+    // sterge si contul de acces + sesiunile lui
+    try {
+      await locals.runtime.env.DB
+        .prepare(`DELETE FROM sessions WHERE user_id IN (SELECT id FROM users WHERE agent_id = ?)`)
+        .bind(id)
+        .run();
+      await locals.runtime.env.DB.prepare(`DELETE FROM users WHERE agent_id = ?`).bind(id).run();
+    } catch {
+      /* tabelele auth pot lipsi */
+    }
     await db.delete(agents).where(eq(agents.id, id));
     return redirect('/agents', 303);
   }

@@ -51,15 +51,17 @@ const label = 'block text-xs font-medium text-slate-600';
         <option value="0" selected={client ? !client.active : false}>Inactiv</option>
       </select>
     </div>
-    <div>
-      <label class={label} for="agentId">Agent de vânzări</label>
-      <select class={field} id="agentId" name="agentId">
-        <option value="" selected={!client?.agentId}>— fără agent —</option>
-        {agentList.map((a) => (
-          <option value={a.id} selected={client?.agentId === a.id}>{a.name}</option>
-        ))}
-      </select>
-    </div>
+    {agentList.length > 0 && (
+      <div>
+        <label class={label} for="agentId">Agent de vânzări</label>
+        <select class={field} id="agentId" name="agentId">
+          <option value="" selected={!client?.agentId}>— fără agent —</option>
+          {agentList.map((a) => (
+            <option value={a.id} selected={client?.agentId === a.id}>{a.name}</option>
+          ))}
+        </select>
+      </div>
+    )}
   </div>
   <div>
     <label class={label} for="notes">Note</label>

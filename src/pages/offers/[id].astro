@@ -14,6 +14,10 @@ const [offer] = await db.select().from(offers).where(eq(offers.id, id));
 if (!offer) return Astro.redirect('/offers');
 
 const [client] = await db.select().from(clients).where(eq(clients.id, offer.clientId));
+
+// Agentul poate deschide doar ofertele clientilor lui
+const user = Astro.locals.user;
+if (user?.role !== 'admin' && client?.agentId !== (user?.agentId ?? -1)) return Astro.redirect('/offers');
 const items = await db.select().from(offerItems).where(eq(offerItems.offerId, id)).orderBy(asc(offerItems.position));
 
 const statusLabel: Record<string, string> = { draft: 'Ciornă', sent: 'Trimisă', accepted: 'Acceptată', rejected: 'Respinsă' };

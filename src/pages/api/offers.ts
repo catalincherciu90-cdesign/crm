@@ -42,6 +42,17 @@ export const POST: APIRoute = async ({ request, locals }) => {
   if (!Array.isArray(body.items) || body.items.length === 0)
     return badRequest('Adauga cel putin o linie in oferta.');
 
+  // Agentul poate crea oferte doar pentru clientii lui
+  const user = locals.user;
+  if (user?.role !== 'admin') {
+    const client = await locals.runtime.env.DB
+      .prepare(`SELECT agent_id FROM clients WHERE id = ?`)
+      .bind(Number(body.clientId))
+      .first<{ agent_id: number | null }>();
+    if (!client || client.agent_id !== (user?.agentId ?? -1))
+      return badRequest('Nu ai acces la acest client.');
+  }
+
   const lines: OfferLineInput[] = body.items.map((it) => ({
     qty: Number(it.qty) || 0,
     unitPrice: Number(it.unitPrice) || 0,

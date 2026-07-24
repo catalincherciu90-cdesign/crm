@@ -6,6 +6,8 @@ import { products } from '@/db/schema';
 import { formatMoney, formatQty } from '@/lib/money';
 import { proxied } from '@/lib/img';
 
+const isAdmin = Astro.locals.user?.role === 'admin';
+
 export const prerender = false;
 
 const PER_PAGE = 50;
@@ -75,10 +77,12 @@ function buildUrl(params: Record<string, string | number | undefined>) {
       <h1 class="text-2xl font-bold text-slate-900">Produse &amp; Stocuri</h1>
       <p class="text-sm text-slate-500">{total} produse{cat ? ` în „${cat}”` : ''}{q ? ` pentru „${q}”` : ''}.</p>
     </div>
-    <div class="flex gap-2">
-      <a href="/products/import" class="rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-700 hover:bg-indigo-100">↓ Import feed</a>
-      <a href="/products/new" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">+ Produs nou</a>
-    </div>
+    {isAdmin && (
+      <div class="flex gap-2">
+        <a href="/products/import" class="rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-700 hover:bg-indigo-100">↓ Import feed</a>
+        <a href="/products/new" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">+ Produs nou</a>
+      </div>
+    )}
   </div>
 
   <!-- Cautare -->

@@ -8,14 +8,22 @@ import { formatMoney, formatQty } from '@/lib/money';
 export const prerender = false;
 
 const db = getDb(Astro.locals.runtime.env.DB);
+const user = Astro.locals.user;
+const isAdmin = user?.role === 'admin';
+const myAgentId = user?.agentId ?? -1;
+// Agentul vede doar cifrele lui (clienti/oferte); produsele raman globale
+const clientWhere = isAdmin ? undefined : eq(clients.agentId, myAgentId);
+const offerAgentSql = isAdmin
+  ? sql`1=1`
+  : sql`client_id IN (SELECT id FROM clients WHERE agent_id = ${myAgentId})`;
 
-const [clientCount] = await db.select({ n: sql<number>`count(*)` }).from(clients);
+const [clientCount] = await db.select({ n: sql<number>`count(*)` }).from(clients).where(clientWhere);
 const [productCount] = await db.select({ n: sql<number>`count(*)` }).from(products);
-const [offerCount] = await db.select({ n: sql<number>`count(*)` }).from(offers);
+const [offerCount] = await db.select({ n: sql<number>`count(*)` }).from(offers).where(offerAgentSql);
 const [pipeline] = await db
   .select({ v: sql<number>`coalesce(sum(total), 0)` })
   .from(offers)
-  .where(sql`status in ('sent','accepted')`);
+  .where(sql`status in ('sent','accepted') AND ${offerAgentSql}`);
 
 const lowStock = await db
   .select()
@@ -36,6 +44,7 @@ const recentOffers = await db
   })
   .from(offers)
   .leftJoin(clients, eq(offers.clientId, clients.id))
+  .where(isAdmin ? undefined : eq(clients.agentId, myAgentId))
   .orderBy(desc(offers.id))
   .limit(6);
 

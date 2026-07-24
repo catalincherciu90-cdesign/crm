@@ -9,9 +9,14 @@ export const prerender = false;
 const PER_PAGE = 50;
 const db = getDb(Astro.locals.runtime.env.DB);
 
+const user = Astro.locals.user;
+const isAdmin = user?.role === 'admin';
+// Agentul isi vede DOAR clientii lui
+const ownAgentId = !isAdmin ? (user?.agentId ?? -1) : 0;
+
 const q = (Astro.url.searchParams.get('q') || '').trim();
 const activeParam = Astro.url.searchParams.get('active'); // '1' | '0' | null
-const agentParam = Number(Astro.url.searchParams.get('agent')) || 0;
+const agentParam = isAdmin ? Number(Astro.url.searchParams.get('agent')) || 0 : 0;
 const page = Math.max(1, Number(Astro.url.searchParams.get('page')) || 1);
 
 const conds: SQL[] = [];
@@ -30,16 +35,18 @@ if (q) {
 if (activeParam === '1') conds.push(eq(clients.active, true));
 if (activeParam === '0') conds.push(eq(clients.active, false));
 if (agentParam) conds.push(eq(clients.agentId, agentParam));
+if (ownAgentId) conds.push(eq(clients.agentId, ownAgentId));
 const where = conds.length ? and(...conds) : undefined;
 
-// Totaluri globale (neafectate de filtre)
+// Totaluri (globale pentru admin; doar clientii proprii pentru agent)
 const [counts] = await db
   .select({
     total: sql<number>`count(*)`,
     active: sql<number>`sum(case when active = 1 then 1 else 0 end)`,
     inactive: sql<number>`sum(case when active = 0 then 1 else 0 end)`,
   })
-  .from(clients);
+  .from(clients)
+  .where(ownAgentId ? eq(clients.agentId, ownAgentId) : undefined);
 
 const [{ total }] = await db.select({ total: sql<number>`count(*)` }).from(clients).where(where);
 const rows = await db
@@ -81,7 +88,7 @@ const skippedN = Number(Astro.url.searchParams.get('skipped')) || 0;
       </p>
     </div>
     <div class="flex gap-2">
-      <a href="/clients/import" class="rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-700 hover:bg-indigo-100">↑ Import Excel</a>
+      {isAdmin && <a href="/clients/import" class="rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-700 hover:bg-indigo-100">↑ Import Excel</a>}
       <a href="/clients/new" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">+ Client nou</a>
     </div>
   </div>
@@ -108,7 +115,7 @@ const skippedN = Number(Astro.url.searchParams.get('skipped')) || 0;
     </div>
   )}
 
-  {rows.length > 0 && (
+  {isAdmin && rows.length > 0 && (
     <div class="mb-3 flex flex-wrap items-center gap-2">
       <button form="bulkForm" type="submit" class="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-100">🗑 Șterge selectații</button>
       <form method="POST" action="/api/clients/bulk-delete" onsubmit={`return confirm('Ștergi TOȚI cei ${total} clienți din filtrul curent? Cei cu oferte sunt săriți. Acțiunea nu poate fi anulată.')`}>
@@ -129,7 +136,7 @@ const skippedN = Number(Astro.url.searchParams.get('skipped')) || 0;
       <table class="w-full text-sm">
         <thead class="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
           <tr>
-            <th class="px-4 py-3 w-8"><input type="checkbox" id="selectAll" /></th>
+            {isAdmin && <th class="px-4 py-3 w-8"><input type="checkbox" id="selectAll" /></th>}
             <th class="px-4 py-3">Nume</th>
             <th class="px-4 py-3">Firmă / CUI</th>
             <th class="px-4 py-3">Contact</th>
@@ -141,7 +148,7 @@ const skippedN = Number(Astro.url.searchParams.get('skipped')) || 0;
         <tbody class="divide-y divide-slate-100">
           {rows.map((c) => (
             <tr class="hover:bg-slate-50">
-              <td class="px-4 py-3"><input type="checkbox" name="ids" value={c.id} class="rowbox" /></td>
+              {isAdmin && <td class="px-4 py-3"><input type="checkbox" name="ids" value={c.id} class="rowbox" /></td>}
               <td class="px-4 py-3 font-medium text-slate-900"><a href={`/clients/${c.id}`} class="hover:text-indigo-600">{c.name}</a></td>
               <td class="px-4 py-3 text-slate-600">
                 {c.company ?? '—'}

@@ -22,6 +22,21 @@ const agentClients = await db
   .where(eq(clients.agentId, id))
   .orderBy(desc(clients.id))
   .limit(15);
+
+// Contul de acces al agentului (daca exista)
+let account: { email: string } | null = null;
+try {
+  account = await Astro.locals.runtime.env.DB
+    .prepare(`SELECT email FROM users WHERE agent_id = ?`)
+    .bind(id)
+    .first<{ email: string }>();
+} catch {
+  /* tabela users poate lipsi inca */
+}
+const accountOk = Astro.url.searchParams.get('account') === 'ok';
+
+const field = 'mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500';
+const flabel = 'block text-xs font-medium text-slate-600';
 ---
 
 <Layout title={agent.name}>
@@ -52,6 +67,32 @@ const agentClients = await db
           ))}
         </ul>
       )}
+    </div>
+
+    <div class="mt-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+      <h2 class="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">🔐 Cont de acces la aplicație</h2>
+      <p class="mb-3 text-sm text-slate-500">
+        {account
+          ? <>Agentul are cont: <strong>{account.email}</strong>. Poți schimba emailul sau seta o parolă nouă.</>
+          : 'Agentul nu are încă cont. Setează email + parolă ca să se poată loga (vede doar clienții și ofertele lui).'}
+      </p>
+      {accountOk && <div class="mb-3 rounded-lg bg-green-50 px-4 py-2.5 text-sm text-green-700">✅ Cont salvat.</div>}
+      <form method="POST" action="/api/agent-account" class="grid gap-3 sm:grid-cols-2">
+        <input type="hidden" name="agentId" value={id} />
+        <div>
+          <label class={flabel} for="acc-email">Email login *</label>
+          <input class={field} id="acc-email" name="email" type="email" required value={account?.email ?? agent.email ?? ''} />
+        </div>
+        <div>
+          <label class={flabel} for="acc-pass">{account ? 'Parolă nouă (lasă gol ca să nu o schimbi)' : 'Parolă * (min. 8)'}</label>
+          <input class={field} id="acc-pass" name="password" type="password" minlength={account ? undefined : 8} required={!account} />
+        </div>
+        <div class="sm:col-span-2">
+          <button class="rounded-lg bg-slate-800 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-900">
+            {account ? 'Actualizează contul' : 'Creează cont de acces'}
+          </button>
+        </div>
+      </form>
     </div>
 
     <div class="mt-4 flex justify-end">

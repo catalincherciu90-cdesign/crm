@@ -8,6 +8,10 @@ import { formatMoney } from '@/lib/money';
 export const prerender = false;
 
 const db = getDb(Astro.locals.runtime.env.DB);
+const user = Astro.locals.user;
+// Agentul vede doar ofertele clientilor lui
+const agentFilter = user?.role !== 'admin' ? eq(clients.agentId, user?.agentId ?? -1) : undefined;
+
 const rows = await db
   .select({
     id: offers.id,
@@ -21,6 +25,7 @@ const rows = await db
   })
   .from(offers)
   .leftJoin(clients, eq(offers.clientId, clients.id))
+  .where(agentFilter)
   .orderBy(desc(offers.id));
 
 const statusLabel: Record<string, string> = { draft: 'Ciornă', sent: 'Trimisă', accepted: 'Acceptată', rejected: 'Respinsă' };

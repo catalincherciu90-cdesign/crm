@@ -10,9 +10,15 @@ export const prerender = false;
 const id = Number(Astro.params.id);
 const db = getDb(Astro.locals.runtime.env.DB);
 const [client] = await db.select().from(clients).where(eq(clients.id, id));
-const agentList = await db.select().from(agents).orderBy(asc(agents.name));
+const agentList =
+  Astro.locals.user?.role === 'admin' ? await db.select().from(agents).orderBy(asc(agents.name)) : [];
 
 if (!client) return Astro.redirect('/clients');
+
+// Agentul poate deschide doar clientii lui
+const user = Astro.locals.user;
+const isAdmin = user?.role === 'admin';
+if (!isAdmin && client.agentId !== (user?.agentId ?? -1)) return Astro.redirect('/clients');
 
 const error = Astro.url.searchParams.get('error');
 ---
@@ -32,11 +38,13 @@ const error = Astro.url.searchParams.get('error');
       <ClientForm client={client} agents={agentList} />
     </div>
 
-    <div class="mt-4 flex justify-end">
-      <form method="POST" action="/api/clients/delete" onsubmit={`return confirm('Ștergi clientul „${client.name.replace(/'/g, '')}”? Acțiunea nu poate fi anulată.')`}>
-        <input type="hidden" name="id" value={id} />
-        <button type="submit" class="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-100">🗑 Șterge client</button>
-      </form>
-    </div>
+    {isAdmin && (
+      <div class="mt-4 flex justify-end">
+        <form method="POST" action="/api/clients/delete" onsubmit={`return confirm('Ștergi clientul „${client.name.replace(/'/g, '')}”? Acțiunea nu poate fi anulată.')`}>
+          <input type="hidden" name="id" value={id} />
+          <button type="submit" class="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-100">🗑 Șterge client</button>
+        </form>
+      </div>
+    )}
   </div>
 </Layout>

@@ -6,13 +6,15 @@ interface Props {
 }
 const { title = 'CRM' } = Astro.props;
 const path = Astro.url.pathname;
+const user = Astro.locals.user;
+const isAdmin = user?.role === 'admin';
 
 const nav = [
   { href: '/', label: 'Dashboard', icon: '📊' },
   { href: '/offers', label: 'Oferte', icon: '📄' },
   { href: '/products', label: 'Produse & Stocuri', icon: '📦' },
   { href: '/clients', label: 'Clienti', icon: '👥' },
-  { href: '/agents', label: 'Agenti', icon: '🧑‍💼' },
+  ...(isAdmin ? [{ href: '/agents', label: 'Agenti', icon: '🧑‍💼' }] : []),
 ];
 
 const isActive = (href: string) =>
@@ -49,9 +51,17 @@ const isActive = (href: string) =>
             </a>
           ))}
         </nav>
-        <div class="border-t border-slate-200 p-4 text-xs text-slate-400">
-          Faza 2: product feed
-        </div>
+        {user && (
+          <div class="border-t border-slate-200 p-4">
+            <div class="mb-2 truncate text-xs text-slate-500" title={user.email}>
+              {user.name || user.email}
+              <span class="ml-1 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">{user.role === 'admin' ? 'Admin' : 'Agent'}</span>
+            </div>
+            <form method="POST" action="/api/logout">
+              <button class="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-500 hover:bg-slate-50">Ieși din cont</button>
+            </form>
+          </div>
+        )}
       </aside>
 
       <!-- Main -->

@@ -21,6 +21,9 @@ export const POST: APIRoute = async ({ request, locals, redirect }) => {
   const name = reqStr(fd, 'name');
   if (!name) return badRequest('Numele clientului este obligatoriu.');
 
+  const user = locals.user;
+  const isAdmin = user?.role === 'admin';
+
   const data = {
     name,
     company: reqStr(fd, 'company') || null,
@@ -30,13 +33,21 @@ export const POST: APIRoute = async ({ request, locals, redirect }) => {
     address: reqStr(fd, 'address') || null,
     priceList: reqStr(fd, 'priceList') || null,
     active: reqStr(fd, 'active') !== '0',
-    agentId: Number(reqStr(fd, 'agentId')) || null,
+    // Agentul nu poate muta clientul la alt agent: mereu al lui
+    agentId: isAdmin ? Number(reqStr(fd, 'agentId')) || null : (user?.agentId ?? null),
     notes: reqStr(fd, 'notes') || null,
   };
 
   const idRaw = reqStr(fd, 'id');
   if (idRaw) {
-    await db.update(clients).set(data).where(eq(clients.id, Number(idRaw)));
+    const cid = Number(idRaw);
+    if (!isAdmin) {
+      // agentul poate edita doar clientii lui
+      const [existing] = await db.select({ agentId: clients.agentId }).from(clients).where(eq(clients.id, cid));
+      if (!existing || existing.agentId !== (user?.agentId ?? -1))
+        return badRequest('Nu ai acces la acest client.');
+    }
+    await db.update(clients).set(data).where(eq(clients.id, cid));
   } else {
     await db.insert(clients).values(data);
   }

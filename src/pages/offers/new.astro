@@ -7,9 +7,15 @@ import { clients, products } from '@/db/schema';
 
 export const prerender = false;
 
+import { eq } from 'drizzle-orm';
+
 const db = getDb(Astro.locals.runtime.env.DB);
+const user = Astro.locals.user;
+// Agentul creeaza oferte doar pentru clientii lui
+const clientWhere = user?.role !== 'admin' ? eq(clients.agentId, user?.agentId ?? -1) : undefined;
+
 const [clientList, productList] = await Promise.all([
-  db.select().from(clients).orderBy(asc(clients.name)),
+  db.select().from(clients).where(clientWhere).orderBy(asc(clients.name)),
   db.select().from(products).orderBy(asc(products.name)),
 ]);
 ---
