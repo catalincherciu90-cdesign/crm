@@ -65,6 +65,8 @@ const filters = [
   { label: 'Inactivi', val: '0', on: activeParam === '0', n: counts.inactive },
 ];
 const filtered = Boolean(q || activeParam);
+const deletedN = Number(Astro.url.searchParams.get('deleted')) || 0;
+const skippedN = Number(Astro.url.searchParams.get('skipped')) || 0;
 ---
 
 <Layout title="Clienti">
@@ -90,7 +92,7 @@ const filtered = Boolean(q || activeParam);
     {(q || activeParam) && <a href="/clients" class="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50">Resetează</a>}
   </form>
 
-  <div class="mb-5 flex gap-2">
+  <div class="mb-4 flex flex-wrap items-center gap-2">
     {filters.map((f) => (
       <a href={buildUrl({ active: f.val, page: 1 })} class={`rounded-full px-3 py-1 text-sm font-medium transition ${f.on ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 border border-slate-200 hover:border-indigo-300'}`}>
         {f.label} ({f.n})
@@ -98,13 +100,33 @@ const filtered = Boolean(q || activeParam);
     ))}
   </div>
 
+  {(deletedN > 0 || skippedN > 0) && (
+    <div class="mb-4 rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700">
+      {deletedN} clienți șterși{skippedN > 0 ? ` · ${skippedN} săriți (au oferte)` : ''}.
+    </div>
+  )}
+
+  {rows.length > 0 && (
+    <div class="mb-3 flex flex-wrap items-center gap-2">
+      <button form="bulkForm" type="submit" class="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-100">🗑 Șterge selectații</button>
+      <form method="POST" action="/api/clients/bulk-delete" onsubmit={`return confirm('Ștergi TOȚI cei ${total} clienți din filtrul curent? Cei cu oferte sunt săriți. Acțiunea nu poate fi anulată.')`}>
+        <input type="hidden" name="all" value="1" />
+        {q && <input type="hidden" name="q" value={q} />}
+        {activeParam && <input type="hidden" name="active" value={activeParam} />}
+        <button type="submit" class="rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50">Șterge toți cei {total} {filtered ? '(din filtru)' : ''}</button>
+      </form>
+    </div>
+  )}
+
   <div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
     {rows.length === 0 ? (
-      <p class="p-8 text-center text-sm text-slate-400">{q ? 'Niciun client găsit.' : 'Niciun client. Adaugă primul client sau importă din Excel.'}</p>
+      <p class="p-8 text-center text-sm text-slate-400">{filtered ? 'Niciun client găsit.' : 'Niciun client. Adaugă primul client sau importă din Excel.'}</p>
     ) : (
+      <form id="bulkForm" method="POST" action="/api/clients/bulk-delete">
       <table class="w-full text-sm">
         <thead class="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
           <tr>
+            <th class="px-4 py-3 w-8"><input type="checkbox" id="selectAll" /></th>
             <th class="px-4 py-3">Nume</th>
             <th class="px-4 py-3">Firmă / CUI</th>
             <th class="px-4 py-3">Contact</th>
@@ -115,8 +137,9 @@ const filtered = Boolean(q || activeParam);
         </thead>
         <tbody class="divide-y divide-slate-100">
           {rows.map((c) => (
-            <tr class="cursor-pointer hover:bg-slate-50" onclick={`location.href='/clients/${c.id}'`}>
-              <td class="px-4 py-3 font-medium text-slate-900">{c.name}</td>
+            <tr class="hover:bg-slate-50">
+              <td class="px-4 py-3"><input type="checkbox" name="ids" value={c.id} class="rowbox" /></td>
+              <td class="px-4 py-3 font-medium text-slate-900"><a href={`/clients/${c.id}`} class="hover:text-indigo-600">{c.name}</a></td>
               <td class="px-4 py-3 text-slate-600">
                 {c.company ?? '—'}
                 {c.taxId && <span class="block text-xs text-slate-400">{c.taxId}</span>}
@@ -138,6 +161,7 @@ const filtered = Boolean(q || activeParam);
           ))}
         </tbody>
       </table>
+      </form>
     )}
   </div>
 
@@ -151,3 +175,22 @@ const filtered = Boolean(q || activeParam);
     </div>
   )}
 </Layout>
+
+<script is:inline>
+  (function () {
+    const selectAll = document.getElementById('selectAll');
+    const boxes = () => Array.prototype.slice.call(document.querySelectorAll('.rowbox'));
+    if (selectAll) selectAll.addEventListener('change', () => boxes().forEach((b) => (b.checked = selectAll.checked)));
+    const form = document.getElementById('bulkForm');
+    if (form)
+      form.addEventListener('submit', (e) => {
+        const n = boxes().filter((b) => b.checked).length;
+        if (n === 0) {
+          e.preventDefault();
+          alert('Selectează cel puțin un client (bifează căsuțele).');
+          return;
+        }
+        if (!confirm('Ștergi ' + n + ' clienți selectați? Cei cu oferte sunt săriți. Acțiunea nu poate fi anulată.')) e.preventDefault();
+      });
+  })();
+</script>
