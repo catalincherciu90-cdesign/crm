@@ -23,8 +23,8 @@ const ADMIN_PREFIXES = [
   '/api/products/delete',
   '/api/feed',
   '/api/image-feed',
-  '/api/setup',
 ];
+// /api/setup ramane accesibil oricui e logat (DDL idempotent, sigur) ca sa poata repara schema
 
 function isAdminOnly(path: string, method: string): boolean {
   if (ADMIN_PREFIXES.some((p) => path === p || path.startsWith(p + '/') || path.startsWith(p + '?'))) return true;
