@@ -1,0 +1,209 @@
+---
+import { eq, and, asc, desc, sql, type SQL } from 'drizzle-orm';
+import Layout from '@/layouts/Layout.astro';
+import { getDb } from '@/db';
+import { visits, clients, agents } from '@/db/schema';
+import { VISIT_STATUS_META, PURPOSE_ICON, visitTiming, type VisitStatus } from '@/lib/visit';
+
+export const prerender = false;
+
+const db = getDb(Astro.locals.runtime.env.DB);
+const user = Astro.locals.user;
+const isAdmin = user?.role === 'admin';
+const ownAgentId = user?.agentId ?? -1;
+
+const today = new Date().toISOString().slice(0, 10);
+const url = Astro.url;
+// filtru: 'upcoming' (implicit) | 'all' | 'planned' | 'done' | 'canceled'
+const view = url.searchParams.get('view') || 'upcoming';
+const agentFilter = isAdmin ? Number(url.searchParams.get('agent')) || 0 : 0;
+
+const conds: SQL[] = [];
+if (!isAdmin) conds.push(eq(visits.agentId, ownAgentId));
+if (agentFilter) conds.push(eq(visits.agentId, agentFilter));
+if (view === 'upcoming') {
+  conds.push(eq(visits.status, 'planned'));
+} else if (view === 'planned' || view === 'done' || view === 'canceled') {
+  conds.push(eq(visits.status, view as VisitStatus));
+}
+const where = conds.length ? and(...conds) : undefined;
+
+// Vizitele viitoare se sorteaza crescator (cele apropiate primele); restul descrescator
+const upcoming = view === 'upcoming';
+const rows = await db
+  .select({
+    id: visits.id,
+    date: visits.date,
+    time: visits.time,
+    purpose: visits.purpose,
+    status: visits.status,
+    location: visits.location,
+    notes: visits.notes,
+    outcome: visits.outcome,
+    clientId: visits.clientId,
+    clientName: clients.name,
+    clientCompany: clients.company,
+    clientPhone: clients.phone,
+    agent: agents.name,
+  })
+  .from(visits)
+  .leftJoin(clients, eq(visits.clientId, clients.id))
+  .leftJoin(agents, eq(visits.agentId, agents.id))
+  .where(where)
+  .orderBy(upcoming ? asc(visits.date) : desc(visits.date), asc(visits.time));
+
+// Sumar rapid (doar in scope-ul userului)
+const scope: SQL[] = isAdmin ? [] : [eq(visits.agentId, ownAgentId)];
+const scopeWhere = scope.length ? and(...scope) : undefined;
+let plannedCount = 0;
+let todayCount = 0;
+let overdueCount = 0;
+try {
+  const [c1] = await db.select({ n: sql<number>`count(*)` }).from(visits).where(and(eq(visits.status, 'planned'), ...(scope as SQL[])));
+  plannedCount = c1?.n ?? 0;
+  const [c2] = await db.select({ n: sql<number>`count(*)` }).from(visits).where(and(eq(visits.status, 'planned'), sql`${visits.date} = ${today}`, ...(scope as SQL[])));
+  todayCount = c2?.n ?? 0;
+  const [c3] = await db.select({ n: sql<number>`count(*)` }).from(visits).where(and(eq(visits.status, 'planned'), sql`${visits.date} < ${today}`, ...(scope as SQL[])));
+  overdueCount = c3?.n ?? 0;
+} catch {
+  /* tabela poate lipsi */
+}
+
+const agentList = isAdmin ? await db.select({ id: agents.id, name: agents.name }).from(agents).orderBy(agents.name) : [];
+
+const tabs = [
+  { key: 'upcoming', label: 'Programate' },
+  { key: 'done', label: 'Efectuate' },
+  { key: 'canceled', label: 'Anulate' },
+  { key: 'all', label: 'Toate' },
+];
+function tabUrl(v: string) {
+  const sp = new URLSearchParams();
+  if (v !== 'upcoming') sp.set('view', v);
+  if (agentFilter) sp.set('agent', String(agentFilter));
+  const s = sp.toString();
+  return '/visits' + (s ? `?${s}` : '');
+}
+function fmtDate(d: string) {
+  return new Date(d + 'T00:00:00').toLocaleDateString('ro-RO', { weekday: 'short', day: '2-digit', month: 'short' });
+}
+---
+
+<Layout title="Vizite">
+  <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
+    <div>
+      <h1 class="text-2xl font-bold text-slate-900">Programator vizite</h1>
+      <p class="text-sm text-slate-500">Planifică și urmărește vizitele la clienți.</p>
+    </div>
+    <a href="/visits/new" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">+ Programează vizită</a>
+  </div>
+
+  <!-- Sumar -->
+  <div class="mb-5 grid grid-cols-3 gap-4">
+    <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div class="text-xl">📅</div>
+      <div class="mt-1 text-xl font-bold text-slate-900">{plannedCount}</div>
+      <div class="text-xs text-slate-500">Programate</div>
+    </div>
+    <div class="rounded-xl border border-amber-200 bg-amber-50/50 p-4 shadow-sm">
+      <div class="text-xl">⏰</div>
+      <div class="mt-1 text-xl font-bold text-amber-700">{todayCount}</div>
+      <div class="text-xs text-amber-700/80">Astăzi</div>
+    </div>
+    <div class="rounded-xl border border-red-200 bg-red-50/50 p-4 shadow-sm">
+      <div class="text-xl">⚠️</div>
+      <div class="mt-1 text-xl font-bold text-red-700">{overdueCount}</div>
+      <div class="text-xs text-red-700/80">Restante</div>
+    </div>
+  </div>
+
+  <!-- Tab-uri + filtru agent -->
+  <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+    <div class="flex flex-wrap gap-2">
+      {tabs.map((t) => (
+        <a href={tabUrl(t.key)} class={`rounded-full px-3 py-1 text-sm font-medium transition ${view === t.key ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 border border-slate-200 hover:border-indigo-300'}`}>
+          {t.label}
+        </a>
+      ))}
+    </div>
+    {isAdmin && (
+      <form method="GET" action="/visits">
+        {view !== 'upcoming' && <input type="hidden" name="view" value={view} />}
+        <select name="agent" onchange="this.form.submit()" class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm">
+          <option value="">Toți agenții</option>
+          {agentList.map((a) => <option value={a.id} selected={agentFilter === a.id}>{a.name}</option>)}
+        </select>
+      </form>
+    )}
+  </div>
+
+  {rows.length === 0 ? (
+    <div class="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-400 shadow-sm">
+      {view === 'upcoming' ? 'Nicio vizită programată. Adaugă prima.' : 'Nicio vizită aici.'}
+    </div>
+  ) : (
+    <div class="space-y-3">
+      {rows.map((v) => {
+        const meta = VISIT_STATUS_META[v.status as VisitStatus];
+        const timing = v.status === 'planned' ? visitTiming(v.date) : null;
+        return (
+          <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+              <div class="min-w-0">
+                <div class="flex flex-wrap items-center gap-2">
+                  <span class={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${meta.cls}`}>{meta.icon} {meta.label}</span>
+                  <span class="text-sm font-semibold text-slate-900">{fmtDate(v.date)}{v.time ? ` · ${v.time}` : ''}</span>
+                  {timing && timing.label && <span class={`text-xs ${timing.cls}`}>({timing.label})</span>}
+                </div>
+                <div class="mt-1.5 font-medium text-slate-900">
+                  <a href={`/clients/${v.clientId}`} class="hover:text-indigo-600 hover:underline">{v.clientName ?? '— client șters —'}</a>
+                  {v.clientCompany && <span class="ml-1 text-xs font-normal text-slate-400">· {v.clientCompany}</span>}
+                </div>
+                <div class="mt-0.5 text-xs text-slate-500">
+                  {PURPOSE_ICON[v.purpose] ?? '•'} {v.purpose}
+                  {isAdmin && v.agent ? ` · 🧑‍💼 ${v.agent}` : ''}
+                  {v.clientPhone ? ` · 📞 ${v.clientPhone}` : ''}
+                </div>
+                {v.location && <div class="mt-0.5 text-xs text-slate-500">📍 {v.location}</div>}
+                {v.notes && <p class="mt-1 text-sm text-slate-600">{v.notes}</p>}
+                {v.outcome && <p class="mt-1 rounded-lg bg-slate-50 px-2 py-1 text-sm text-slate-600"><span class="font-medium text-slate-500">Rezultat:</span> {v.outcome}</p>}
+              </div>
+              <div class="flex shrink-0 flex-wrap items-center gap-1.5">
+                {v.status === 'planned' && (
+                  <>
+                    <form method="POST" action="/api/visits">
+                      <input type="hidden" name="setStatus" value="done" />
+                      <input type="hidden" name="id" value={v.id} />
+                      <input type="hidden" name="back" value={Astro.url.pathname + Astro.url.search} />
+                      <button class="rounded-lg bg-green-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-green-700" title="Marchează efectuată">✅ Efectuată</button>
+                    </form>
+                    <form method="POST" action="/api/visits" onsubmit="return confirm('Anulezi această vizită?')">
+                      <input type="hidden" name="setStatus" value="canceled" />
+                      <input type="hidden" name="id" value={v.id} />
+                      <input type="hidden" name="back" value={Astro.url.pathname + Astro.url.search} />
+                      <button class="rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-medium text-slate-500 hover:bg-slate-50" title="Anulează">✖️</button>
+                    </form>
+                  </>
+                )}
+                {v.status !== 'planned' && (
+                  <form method="POST" action="/api/visits">
+                    <input type="hidden" name="setStatus" value="planned" />
+                    <input type="hidden" name="id" value={v.id} />
+                    <input type="hidden" name="back" value={Astro.url.pathname + Astro.url.search} />
+                    <button class="rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-medium text-slate-500 hover:bg-slate-50" title="Reprogramează">↩︎ Reactivează</button>
+                  </form>
+                )}
+                <a href={`/visits/${v.id}`} class="rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50">Editează</a>
+                <form method="POST" action="/api/visits" onsubmit="return confirm('Ștergi această vizită?')">
+                  <input type="hidden" name="delete" value="1" />
+                  <input type="hidden" name="id" value={v.id} />
+                  <button class="rounded-lg px-2 py-1.5 text-xs text-red-500 hover:text-red-700" title="Șterge">🗑</button>
+                </form>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  )}
+</Layout>

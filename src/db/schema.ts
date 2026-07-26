@@ -244,3 +244,37 @@ export const expenses = sqliteTable(
 
 export type Expense = typeof expenses.$inferSelect;
 export type NewExpense = typeof expenses.$inferInsert;
+
+// ---------- Programator vizite ----------
+export const visits = sqliteTable(
+  'visits',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    clientId: integer('client_id')
+      .notNull()
+      .references(() => clients.id, { onDelete: 'cascade' }),
+    agentId: integer('agent_id').references(() => agents.id),
+    date: text('date')
+      .notNull()
+      .default(sql`(date('now'))`), // data programata
+    time: text('time'), // ora HH:MM (optional)
+    purpose: text('purpose').notNull().default('Vizită comercială'),
+    status: text('status', { enum: ['planned', 'done', 'canceled'] })
+      .notNull()
+      .default('planned'),
+    location: text('location'), // adresa vizitei (implicit adresa clientului)
+    notes: text('notes'),
+    outcome: text('outcome'), // rezultat, completat dupa vizita
+    createdAt: text('created_at')
+      .notNull()
+      .default(sql`(datetime('now'))`),
+  },
+  (t) => [
+    index('idx_visits_agent').on(t.agentId),
+    index('idx_visits_date').on(t.date),
+    index('idx_visits_client').on(t.clientId),
+  ],
+);
+
+export type Visit = typeof visits.$inferSelect;
+export type NewVisit = typeof visits.$inferInsert;

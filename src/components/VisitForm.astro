@@ -1,0 +1,113 @@
+---
+import type { Visit, Agent } from '@/db/schema';
+import { VISIT_PURPOSES, VISIT_STATUS_META, type VisitStatus } from '@/lib/visit';
+
+interface ClientOpt {
+  id: number;
+  name: string;
+  company: string | null;
+  address: string | null;
+}
+interface Props {
+  visit?: Visit;
+  clients: ClientOpt[];
+  agents?: Pick<Agent, 'id' | 'name'>[];
+  isAdmin?: boolean;
+  preClientId?: number;
+}
+const { visit, clients, agents = [], isAdmin = false, preClientId } = Astro.props;
+
+const field = 'mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500';
+const label = 'block text-xs font-medium text-slate-600';
+
+const today = new Date().toISOString().slice(0, 10);
+const selClient = visit?.clientId ?? preClientId ?? '';
+const statuses: VisitStatus[] = ['planned', 'done', 'canceled'];
+
+// map id->address pentru precompletarea locatiei din client (client-side)
+const addrMap = Object.fromEntries(clients.map((c) => [c.id, c.address ?? '']));
+---
+
+<form method="POST" action="/api/visits" class="space-y-4">
+  {visit && <input type="hidden" name="id" value={visit.id} />}
+
+  <div>
+    <label class={label} for="clientId">Client *</label>
+    <select class={field} id="clientId" name="clientId" required data-addr={JSON.stringify(addrMap)}>
+      <option value="">— alege client —</option>
+      {clients.map((c) => (
+        <option value={c.id} selected={Number(selClient) === c.id}>
+          {c.name}{c.company ? ` · ${c.company}` : ''}
+        </option>
+      ))}
+    </select>
+    {clients.length === 0 && <p class="mt-1 text-xs text-amber-600">Nu ai clienți alocați. Adaugă întâi un client.</p>}
+  </div>
+
+  <div class="grid gap-4 sm:grid-cols-2">
+    <div>
+      <label class={label} for="date">Data *</label>
+      <input class={field} id="date" name="date" type="date" required value={visit?.date ?? today} />
+    </div>
+    <div>
+      <label class={label} for="time">Ora</label>
+      <input class={field} id="time" name="time" type="time" value={visit?.time ?? ''} />
+    </div>
+    <div>
+      <label class={label} for="purpose">Scop</label>
+      <select class={field} id="purpose" name="purpose">
+        {VISIT_PURPOSES.map((p) => <option value={p} selected={visit?.purpose === p}>{p}</option>)}
+      </select>
+    </div>
+    <div>
+      <label class={label} for="status">Status</label>
+      <select class={field} id="status" name="status">
+        {statuses.map((s) => <option value={s} selected={(visit?.status ?? 'planned') === s}>{VISIT_STATUS_META[s].label}</option>)}
+      </select>
+    </div>
+  </div>
+
+  <div>
+    <label class={label} for="location">Locație</label>
+    <input class={field} id="location" name="location" value={visit?.location ?? ''} placeholder="Adresa vizitei (implicit adresa clientului)" />
+  </div>
+
+  {isAdmin && (
+    <div>
+      <label class={label} for="agentId">Agent</label>
+      <select class={field} id="agentId" name="agentId">
+        <option value="">— fără agent —</option>
+        {agents.map((a) => <option value={a.id} selected={visit?.agentId === a.id}>{a.name}</option>)}
+      </select>
+    </div>
+  )}
+
+  <div>
+    <label class={label} for="notes">Notițe (pregătire vizită)</label>
+    <textarea class={field} id="notes" name="notes" rows="2" placeholder="Ce discutăm, ce ducem, obiective...">{visit?.notes ?? ''}</textarea>
+  </div>
+
+  <div>
+    <label class={label} for="outcome">Rezultat (după vizită)</label>
+    <textarea class={field} id="outcome" name="outcome" rows="2" placeholder="Ce s-a discutat, pași următori...">{visit?.outcome ?? ''}</textarea>
+  </div>
+
+  <div class="flex gap-3">
+    <button type="submit" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">{visit ? 'Salvează' : 'Programează vizita'}</button>
+    <a href="/visits" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50">Anulează</a>
+  </div>
+</form>
+
+<script is:inline>
+  // Precompleteaza locatia cu adresa clientului daca e goala
+  (function () {
+    const sel = document.getElementById('clientId');
+    const loc = document.getElementById('location');
+    if (!sel || !loc) return;
+    let addr = {};
+    try { addr = JSON.parse(sel.getAttribute('data-addr') || '{}'); } catch (_) {}
+    sel.addEventListener('change', () => {
+      if (!loc.value.trim()) loc.value = addr[sel.value] || '';
+    });
+  })();
+</script>

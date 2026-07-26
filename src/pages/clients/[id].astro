@@ -34,6 +34,10 @@ const error = Astro.url.searchParams.get('error');
       </div>
     )}
 
+    <div class="mb-4 flex justify-end">
+      <a href={`/visits/new?client=${id}`} class="rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-700 hover:bg-indigo-100">📅 Programează vizită</a>
+    </div>
+
     <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
       <ClientForm client={client} agents={agentList} />
     </div>

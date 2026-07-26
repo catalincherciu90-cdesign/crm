@@ -2,11 +2,12 @@
 import { sql, desc, eq, lte, gt, and } from 'drizzle-orm';
 import Layout from '@/layouts/Layout.astro';
 import { getDb } from '@/db';
-import { clients, products, offers, agents, vehicles, type Product } from '@/db/schema';
+import { clients, products, offers, agents, vehicles, visits, type Product } from '@/db/schema';
 import { formatMoney, formatQty } from '@/lib/money';
 import MonthlyChart from '@/components/MonthlyChart.astro';
 import { monthlyRealized } from '@/lib/targets';
 import { docStatus, worstStatus } from '@/lib/fleet';
+import { visitTiming, PURPOSE_ICON } from '@/lib/visit';
 
 export const prerender = false;
 
@@ -108,6 +109,31 @@ try {
   /* tabela vehicles poate lipsi inca */
 }
 
+// Vizite programate (viitoare + restante): admin = tot; agent = ale lui
+let upcomingVisits: {
+  id: number; date: string; time: string | null; purpose: string;
+  clientId: number; client: string | null; agent: string | null;
+}[] = [];
+try {
+  upcomingVisits = await db
+    .select({
+      id: visits.id, date: visits.date, time: visits.time, purpose: visits.purpose,
+      clientId: visits.clientId, client: clients.name, agent: agents.name,
+    })
+    .from(visits)
+    .leftJoin(clients, eq(visits.clientId, clients.id))
+    .leftJoin(agents, eq(visits.agentId, agents.id))
+    .where(
+      isAdmin
+        ? and(eq(visits.status, 'planned'), lte(visits.date, sql`date('now','+7 day')`))
+        : and(eq(visits.agentId, myAgentId), eq(visits.status, 'planned'), lte(visits.date, sql`date('now','+7 day')`)),
+    )
+    .orderBy(visits.date, visits.time)
+    .limit(6);
+} catch {
+  /* tabela visits poate lipsi inca */
+}
+
 const statusLabel: Record<string, string> = {
   draft: 'Ciorna', sent: 'Trimisa', accepted: 'Acceptata', rejected: 'Respinsa',
 };
@@ -189,6 +215,32 @@ const stats = [
             </div>
           </li>
         ))}
+      </ul>
+    </section>
+  )}
+
+  {upcomingVisits.length > 0 && (
+    <section class="mt-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div class="mb-3 flex items-center justify-between">
+        <h2 class="font-semibold text-slate-900">📅 Vizite apropiate</h2>
+        <a href="/visits" class="text-sm text-indigo-600 hover:underline">Toate</a>
+      </div>
+      <ul class="divide-y divide-slate-100">
+        {upcomingVisits.map((v) => {
+          const t = visitTiming(v.date);
+          return (
+            <li class="flex flex-wrap items-center justify-between gap-2 py-3">
+              <div class="min-w-0">
+                <a href={`/visits/${v.id}`} class="font-medium text-slate-900 hover:text-indigo-600">{v.client ?? '—'}</a>
+                <div class="text-xs text-slate-500">{PURPOSE_ICON[v.purpose] ?? '•'} {v.purpose}{isAdmin && v.agent ? ` · ${v.agent}` : ''}</div>
+              </div>
+              <div class="text-right">
+                <div class="text-sm font-semibold text-slate-800">{new Date(v.date + 'T00:00:00').toLocaleDateString('ro-RO', { day: '2-digit', month: 'short' })}{v.time ? ` · ${v.time}` : ''}</div>
+                <div class={`text-xs ${t.cls}`}>{t.label}</div>
+              </div>
+            </li>
+          );
+        })}
       </ul>
     </section>
   )}

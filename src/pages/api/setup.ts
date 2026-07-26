@@ -47,6 +47,14 @@ const STATEMENTS: string[] = [
     odometer REAL, cost REAL NOT NULL DEFAULT 0, description TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now')))`,
   `CREATE INDEX IF NOT EXISTS idx_service_vehicle ON service_records (vehicle_id)`,
+  `CREATE TABLE IF NOT EXISTS visits (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, client_id INTEGER NOT NULL, agent_id INTEGER REFERENCES agents (id),
+    date TEXT NOT NULL DEFAULT (date('now')), time TEXT, purpose TEXT NOT NULL DEFAULT 'Vizită comercială',
+    status TEXT NOT NULL DEFAULT 'planned', location TEXT, notes TEXT, outcome TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')))`,
+  `CREATE INDEX IF NOT EXISTS idx_visits_agent ON visits (agent_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_visits_date ON visits (date)`,
+  `CREATE INDEX IF NOT EXISTS idx_visits_client ON visits (client_id)`,
 
   `CREATE TABLE IF NOT EXISTS products (
     id INTEGER PRIMARY KEY AUTOINCREMENT, sku TEXT NOT NULL UNIQUE, name TEXT NOT NULL,

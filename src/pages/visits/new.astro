@@ -1,0 +1,34 @@
+---
+import { eq, asc, and } from 'drizzle-orm';
+import Layout from '@/layouts/Layout.astro';
+import { getDb } from '@/db';
+import { clients, agents } from '@/db/schema';
+import VisitForm from '@/components/VisitForm.astro';
+
+export const prerender = false;
+
+const db = getDb(Astro.locals.runtime.env.DB);
+const user = Astro.locals.user;
+const isAdmin = user?.role === 'admin';
+const ownAgentId = user?.agentId ?? -1;
+
+const clientList = await db
+  .select({ id: clients.id, name: clients.name, company: clients.company, address: clients.address })
+  .from(clients)
+  .where(isAdmin ? undefined : eq(clients.agentId, ownAgentId))
+  .orderBy(asc(clients.name));
+
+const agentList = isAdmin ? await db.select({ id: agents.id, name: agents.name }).from(agents).orderBy(agents.name) : [];
+const preClientId = Number(Astro.url.searchParams.get('client')) || undefined;
+---
+
+<Layout title="Programează vizită">
+  <div class="mx-auto max-w-2xl">
+    <a href="/visits" class="text-sm text-indigo-600 hover:underline">← Vizite</a>
+    <h1 class="mt-2 mb-6 text-2xl font-bold text-slate-900">Programează vizită</h1>
+
+    <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+      <VisitForm clients={clientList} agents={agentList} isAdmin={isAdmin} preClientId={preClientId} />
+    </div>
+  </div>
+</Layout>
