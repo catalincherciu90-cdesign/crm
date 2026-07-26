@@ -15,7 +15,12 @@ const nav = [
   { href: '/products', label: 'Produse & Stocuri', short: 'Stoc', icon: '📦' },
   { href: '/clients', label: 'Clienti', short: 'Clienți', icon: '👥' },
   { href: '/expenses', label: 'Cheltuieli', short: 'Chelt.', icon: '💸' },
-  ...(isAdmin ? [{ href: '/agents', label: 'Agenti', short: 'Agenți', icon: '🧑‍💼' }] : []),
+  ...(isAdmin
+    ? [
+        { href: '/fleet', label: 'Parc auto', short: 'Auto', icon: '🚗' },
+        { href: '/agents', label: 'Agenti', short: 'Agenți', icon: '🧑‍💼' },
+      ]
+    : []),
 ];
 
 const isActive = (href: string) =>

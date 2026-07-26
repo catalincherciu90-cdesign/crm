@@ -1,0 +1,101 @@
+---
+import { asc, eq } from 'drizzle-orm';
+import Layout from '@/layouts/Layout.astro';
+import { getDb } from '@/db';
+import { vehicles, agents } from '@/db/schema';
+import { formatQty } from '@/lib/money';
+import { docStatus, worstStatus } from '@/lib/fleet';
+
+export const prerender = false;
+
+const db = getDb(Astro.locals.runtime.env.DB);
+const rows = await db
+  .select({
+    id: vehicles.id,
+    plate: vehicles.plate,
+    make: vehicles.make,
+    model: vehicles.model,
+    fuelType: vehicles.fuelType,
+    odometer: vehicles.odometer,
+    active: vehicles.active,
+    itpExpiry: vehicles.itpExpiry,
+    rcaExpiry: vehicles.rcaExpiry,
+    rovinietaExpiry: vehicles.rovinietaExpiry,
+    cascoExpiry: vehicles.cascoExpiry,
+    agent: agents.name,
+  })
+  .from(vehicles)
+  .leftJoin(agents, eq(vehicles.agentId, agents.id))
+  .orderBy(asc(vehicles.plate));
+
+const enriched = rows.map((v) => ({
+  ...v,
+  worst: worstStatus([v.itpExpiry, v.rcaExpiry, v.rovinietaExpiry, v.cascoExpiry]),
+  docs: {
+    ITP: docStatus(v.itpExpiry),
+    RCA: docStatus(v.rcaExpiry),
+    Rov: docStatus(v.rovinietaExpiry),
+    CASCO: docStatus(v.cascoExpiry),
+  },
+}));
+const expired = enriched.filter((v) => v.worst === 'expired').length;
+const soon = enriched.filter((v) => v.worst === 'soon').length;
+---
+
+<Layout title="Parc auto">
+  <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
+    <div>
+      <h1 class="text-2xl font-bold text-slate-900">Parc auto</h1>
+      <p class="text-sm text-slate-500">{rows.length} mașini.</p>
+    </div>
+    <a href="/fleet/new" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">+ Mașină nouă</a>
+  </div>
+
+  {(expired > 0 || soon > 0) && (
+    <div class="mb-5 flex flex-wrap gap-3">
+      {expired > 0 && <div class="rounded-lg bg-red-50 px-4 py-2 text-sm font-medium text-red-700">🔴 {expired} mașini cu documente expirate</div>}
+      {soon > 0 && <div class="rounded-lg bg-amber-50 px-4 py-2 text-sm font-medium text-amber-700">🟠 {soon} mașini cu documente ce expiră curând</div>}
+    </div>
+  )}
+
+  <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+    {rows.length === 0 ? (
+      <p class="p-8 text-center text-sm text-slate-400">Niciun autovehicul. Adaugă prima mașină.</p>
+    ) : (
+      <table class="w-full text-sm">
+        <thead class="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+          <tr>
+            <th class="px-4 py-3">Mașină</th>
+            <th class="hidden px-4 py-3 md:table-cell">Șofer</th>
+            <th class="hidden px-4 py-3 text-right lg:table-cell">Km</th>
+            <th class="px-4 py-3">Documente</th>
+            <th class="px-4 py-3"></th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          {enriched.map((v) => (
+            <tr class="cursor-pointer hover:bg-slate-50" onclick={`location.href='/fleet/${v.id}'`}>
+              <td class="px-4 py-3">
+                <div class="font-semibold text-slate-900">{v.plate}</div>
+                <div class="text-xs text-slate-400">{[v.make, v.model].filter(Boolean).join(' ') || v.fuelType}{!v.active ? ' · inactivă' : ''}</div>
+                <div class="mt-0.5 text-xs text-slate-400 md:hidden">{v.agent ?? 'nealocat'}</div>
+              </td>
+              <td class="hidden px-4 py-3 text-slate-600 md:table-cell">{v.agent ?? '—'}</td>
+              <td class="hidden px-4 py-3 text-right text-slate-600 lg:table-cell">{formatQty(v.odometer)}</td>
+              <td class="px-4 py-3">
+                <div class="flex flex-wrap gap-1">
+                  {Object.entries(v.docs).map(([name, s]) => (
+                    <span class={`rounded px-1.5 py-0.5 text-[10px] font-medium ${s.cls}`} title={name}>{name}: {s.label}</span>
+                  ))}
+                </div>
+              </td>
+              <td class="px-4 py-3 text-right">
+                <a href={`/fleet/${v.id}`} class="text-indigo-600 hover:underline">Detalii</a>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    )}
+  </div>
+</Layout>

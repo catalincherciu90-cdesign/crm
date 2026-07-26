@@ -1,0 +1,22 @@
+---
+import { asc } from 'drizzle-orm';
+import Layout from '@/layouts/Layout.astro';
+import VehicleForm from '@/components/VehicleForm.astro';
+import { getDb } from '@/db';
+import { agents } from '@/db/schema';
+
+export const prerender = false;
+
+const db = getDb(Astro.locals.runtime.env.DB);
+const agentList = await db.select({ id: agents.id, name: agents.name }).from(agents).orderBy(asc(agents.name));
+---
+
+<Layout title="Mașină nouă">
+  <div class="mx-auto max-w-3xl">
+    <a href="/fleet" class="text-sm text-indigo-600 hover:underline">← Parc auto</a>
+    <h1 class="mt-2 mb-6 text-2xl font-bold text-slate-900">Mașină nouă</h1>
+    <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+      <VehicleForm agents={agentList} />
+    </div>
+  </div>
+</Layout>

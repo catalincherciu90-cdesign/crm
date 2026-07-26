@@ -14,9 +14,14 @@ async function ensureTable(d1: D1Database) {
         `CREATE TABLE IF NOT EXISTS expenses (
           id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT NOT NULL DEFAULT (date('now')),
           category TEXT NOT NULL DEFAULT 'Altele', amount REAL NOT NULL DEFAULT 0, liters REAL,
-          description TEXT, agent_id INTEGER, created_at TEXT NOT NULL DEFAULT (datetime('now')))`,
+          description TEXT, agent_id INTEGER, vehicle_id INTEGER, created_at TEXT NOT NULL DEFAULT (datetime('now')))`,
       )
       .run();
+  } catch {
+    /* exista deja */
+  }
+  try {
+    await d1.prepare(`ALTER TABLE expenses ADD COLUMN vehicle_id INTEGER`).run();
   } catch {
     /* exista deja */
   }
@@ -58,6 +63,7 @@ export const POST: APIRoute = async ({ request, locals, redirect }) => {
     liters: category === 'Combustibil' ? numOr(fd, 'liters', 0) || null : null,
     description: reqStr(fd, 'description') || null,
     agentId,
+    vehicleId: category === 'Combustibil' ? Number(reqStr(fd, 'vehicleId')) || null : null,
   };
 
   const idRaw = reqStr(fd, 'id');

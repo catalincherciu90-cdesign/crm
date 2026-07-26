@@ -1,0 +1,96 @@
+---
+import type { Vehicle, Agent } from '@/db/schema';
+import { FUEL_TYPES } from '@/lib/fleet';
+interface Props {
+  vehicle?: Vehicle;
+  agents?: Pick<Agent, 'id' | 'name'>[];
+}
+const { vehicle, agents = [] } = Astro.props;
+const field = 'mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500';
+const label = 'block text-xs font-medium text-slate-600';
+---
+
+<form method="POST" action="/api/vehicles" class="space-y-5">
+  {vehicle && <input type="hidden" name="id" value={vehicle.id} />}
+
+  <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <div>
+      <label class={label} for="plate">Nr. înmatriculare *</label>
+      <input class={field} id="plate" name="plate" required value={vehicle?.plate ?? ''} placeholder="B 123 ABC" />
+    </div>
+    <div>
+      <label class={label} for="make">Marcă</label>
+      <input class={field} id="make" name="make" value={vehicle?.make ?? ''} placeholder="Dacia" />
+    </div>
+    <div>
+      <label class={label} for="model">Model</label>
+      <input class={field} id="model" name="model" value={vehicle?.model ?? ''} placeholder="Duster" />
+    </div>
+    <div>
+      <label class={label} for="year">An</label>
+      <input class={field} id="year" name="year" type="number" value={vehicle?.year ?? ''} placeholder="2021" />
+    </div>
+    <div>
+      <label class={label} for="fuelType">Combustibil</label>
+      <select class={field} id="fuelType" name="fuelType">
+        {FUEL_TYPES.map((f) => <option value={f} selected={(vehicle?.fuelType ?? 'Motorină') === f}>{f}</option>)}
+      </select>
+    </div>
+    <div>
+      <label class={label} for="odometer">Kilometraj</label>
+      <input class={field} id="odometer" name="odometer" type="number" step="1" value={vehicle?.odometer ?? 0} />
+    </div>
+    <div>
+      <label class={label} for="vin">Serie șasiu (VIN)</label>
+      <input class={field} id="vin" name="vin" value={vehicle?.vin ?? ''} />
+    </div>
+    <div>
+      <label class={label} for="agentId">Șofer alocat</label>
+      <select class={field} id="agentId" name="agentId">
+        <option value="" selected={!vehicle?.agentId}>— nealocat —</option>
+        {agents.map((a) => <option value={a.id} selected={vehicle?.agentId === a.id}>{a.name}</option>)}
+      </select>
+    </div>
+    <div>
+      <label class={label} for="active">Status</label>
+      <select class={field} id="active" name="active">
+        <option value="1" selected={vehicle ? vehicle.active : true}>Activă</option>
+        <option value="0" selected={vehicle ? !vehicle.active : false}>Inactivă</option>
+      </select>
+    </div>
+  </div>
+
+  <div>
+    <h3 class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Documente (expirare)</h3>
+    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div>
+        <label class={label} for="itpExpiry">ITP</label>
+        <input class={field} id="itpExpiry" name="itpExpiry" type="date" value={vehicle?.itpExpiry ?? ''} />
+      </div>
+      <div>
+        <label class={label} for="rcaExpiry">RCA</label>
+        <input class={field} id="rcaExpiry" name="rcaExpiry" type="date" value={vehicle?.rcaExpiry ?? ''} />
+      </div>
+      <div>
+        <label class={label} for="rovinietaExpiry">Rovinietă</label>
+        <input class={field} id="rovinietaExpiry" name="rovinietaExpiry" type="date" value={vehicle?.rovinietaExpiry ?? ''} />
+      </div>
+      <div>
+        <label class={label} for="cascoExpiry">CASCO</label>
+        <input class={field} id="cascoExpiry" name="cascoExpiry" type="date" value={vehicle?.cascoExpiry ?? ''} />
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <label class={label} for="notes">Note</label>
+    <textarea class={field} id="notes" name="notes" rows="2">{vehicle?.notes ?? ''}</textarea>
+  </div>
+
+  <div class="flex gap-3">
+    <button type="submit" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">
+      {vehicle ? 'Salvează' : 'Adaugă mașina'}
+    </button>
+    <a href="/fleet" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50">Anulează</a>
+  </div>
+</form>

@@ -168,6 +168,35 @@ export type NewFeedSource = typeof feedSources.$inferInsert;
 export type Agent = typeof agents.$inferSelect;
 export type NewAgent = typeof agents.$inferInsert;
 
+// ---------- Parc auto ----------
+export const vehicles = sqliteTable(
+  'vehicles',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    plate: text('plate').notNull().unique(), // numar inmatriculare
+    make: text('make'), // marca
+    model: text('model'),
+    year: integer('year'),
+    vin: text('vin'), // serie sasiu
+    fuelType: text('fuel_type').default('Motorină'),
+    odometer: real('odometer').notNull().default(0), // km curent
+    agentId: integer('agent_id').references(() => agents.id), // sofer alocat
+    itpExpiry: text('itp_expiry'), // date
+    rcaExpiry: text('rca_expiry'),
+    rovinietaExpiry: text('rovinieta_expiry'),
+    cascoExpiry: text('casco_expiry'),
+    active: integer('active', { mode: 'boolean' }).notNull().default(true),
+    notes: text('notes'),
+    createdAt: text('created_at')
+      .notNull()
+      .default(sql`(datetime('now'))`),
+  },
+  (t) => [index('idx_vehicles_agent').on(t.agentId)],
+);
+
+export type Vehicle = typeof vehicles.$inferSelect;
+export type NewVehicle = typeof vehicles.$inferInsert;
+
 // ---------- Cheltuieli ----------
 export const expenses = sqliteTable(
   'expenses',
@@ -181,6 +210,7 @@ export const expenses = sqliteTable(
     liters: real('liters'), // pentru combustibil (optional)
     description: text('description'),
     agentId: integer('agent_id').references(() => agents.id),
+    vehicleId: integer('vehicle_id').references(() => vehicles.id), // masina (pt. combustibil)
     createdAt: text('created_at')
       .notNull()
       .default(sql`(datetime('now'))`),

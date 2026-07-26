@@ -9,6 +9,8 @@ const ADMIN_PREFIXES = [
   '/agents',
   '/api/agents',
   '/api/agent-account',
+  '/fleet',
+  '/api/vehicles',
   '/clients/import',
   '/api/clients/import',
   '/api/clients/bulk-delete',
