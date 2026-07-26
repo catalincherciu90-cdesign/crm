@@ -32,8 +32,15 @@ const isActive = (href: string) =>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#ffffff" />
+    <meta name="theme-color" content="#4f46e5" />
     <title>{title} · CRM</title>
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="CRM" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   </head>
   <body class="min-h-screen bg-slate-50 text-slate-800">
     <div class="flex min-h-screen">
@@ -58,6 +65,7 @@ const isActive = (href: string) =>
         </nav>
         {user && (
           <div class="border-t border-slate-200 p-4">
+            <button type="button" class="js-install mb-2 hidden w-full rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white hover:bg-indigo-700">📲 Instalează aplicația</button>
             <div class="mb-2 truncate text-xs text-slate-500" title={user.email}>
               {user.name || user.email}
               <span class="ml-1 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">{user.role === 'admin' ? 'Admin' : 'Agent'}</span>
@@ -92,6 +100,10 @@ const isActive = (href: string) =>
                   </a>
                 ))}
               </nav>
+              <div class="border-t border-slate-100 p-2">
+                <button type="button" class="js-install hidden w-full rounded-lg bg-indigo-600 px-3 py-2.5 text-sm font-semibold text-white">📲 Instalează aplicația</button>
+                <p class="js-install-ios hidden px-1 py-2 text-xs text-slate-500">📲 Instalează: apasă <strong>Distribuie</strong> ⎋ apoi <strong>„Adaugă pe ecranul principal"</strong>.</p>
+              </div>
               {user && (
                 <div class="border-t border-slate-100 p-3">
                   <div class="mb-2 truncate text-xs text-slate-500">
@@ -112,5 +124,61 @@ const isActive = (href: string) =>
         </main>
       </div>
     </div>
+
+    <script is:inline>
+      // PWA: inregistram service worker-ul (necesar pentru instalare)
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js').catch(() => {});
+        });
+      }
+
+      (function () {
+        const installBtns = () => Array.from(document.querySelectorAll('.js-install'));
+        const iosHints = () => Array.from(document.querySelectorAll('.js-install-ios'));
+
+        // Ruleaza deja instalata? (standalone) -> nu aratam nimic
+        const standalone =
+          window.matchMedia('(display-mode: standalone)').matches ||
+          window.navigator.standalone === true;
+
+        let deferredPrompt = null;
+
+        // Android / Chrome / Edge: prindem evenimentul si aratam butonul
+        window.addEventListener('beforeinstallprompt', (e) => {
+          e.preventDefault();
+          deferredPrompt = e;
+          if (standalone) return;
+          installBtns().forEach((b) => b.classList.remove('hidden'));
+        });
+
+        // Click pe buton -> deschide dialogul nativ de instalare
+        document.addEventListener('click', async (ev) => {
+          const btn = ev.target && ev.target.closest && ev.target.closest('.js-install');
+          if (!btn || !deferredPrompt) return;
+          ev.preventDefault();
+          deferredPrompt.prompt();
+          try { await deferredPrompt.userChoice; } catch (_) {}
+          deferredPrompt = null;
+          installBtns().forEach((b) => b.classList.add('hidden'));
+        });
+
+        // Dupa instalare, ascundem butoanele
+        window.addEventListener('appinstalled', () => {
+          deferredPrompt = null;
+          installBtns().forEach((b) => b.classList.add('hidden'));
+          iosHints().forEach((b) => b.classList.add('hidden'));
+        });
+
+        // iOS Safari nu suporta beforeinstallprompt -> aratam instructiuni manuale
+        const ua = window.navigator.userAgent || '';
+        const isIOS = /iPad|iPhone|iPod/.test(ua) ||
+          (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        const isSafari = /Safari/.test(ua) && !/CriOS|FxiOS|EdgiOS|OPiOS/.test(ua);
+        if (isIOS && isSafari && !standalone) {
+          iosHints().forEach((b) => b.classList.remove('hidden'));
+        }
+      })();
+    </script>
   </body>
 </html>
