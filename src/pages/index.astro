@@ -4,6 +4,8 @@ import Layout from '@/layouts/Layout.astro';
 import { getDb } from '@/db';
 import { clients, products, offers, agents } from '@/db/schema';
 import { formatMoney, formatQty } from '@/lib/money';
+import MonthlyChart from '@/components/MonthlyChart.astro';
+import { monthlyRealized } from '@/lib/targets';
 
 export const prerender = false;
 
@@ -39,6 +41,9 @@ if (!isAdmin && user?.agentId) {
 }
 const myPct = myTarget > 0 ? Math.round((myAchieved / myTarget) * 100) : 0;
 const lunaCurenta = new Date().toLocaleDateString('ro-RO', { month: 'long', year: 'numeric' });
+
+// Istoric pe 6 luni: agentul vede al lui, adminul vede pe toata echipa
+const history = await monthlyRealized(db, isAdmin ? null : (user?.agentId ?? -1), 6);
 
 const lowStock = await db
   .select()
@@ -172,5 +177,9 @@ const stats = [
         </ul>
       )}
     </section>
+  </div>
+
+  <div class="mt-8">
+    <MonthlyChart data={history} target={isAdmin ? 0 : myTarget} title={isAdmin ? 'Echipă — realizat pe ultimele 6 luni' : 'Realizat pe ultimele 6 luni'} />
   </div>
 </Layout>
