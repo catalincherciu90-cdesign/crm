@@ -103,7 +103,7 @@ const STATEMENTS: string[] = [
   `INSERT OR IGNORE INTO feed_sources (name, url, price_field) VALUES ('spotvision-b2b', 'https://b2b.spotvisionelectric.ro/userfiles/67478137-4ca2-48d6-b6f8-59f8be4f84f0/feeds/b8163d76-84b4-4750-a52e-37af8dc0a58d.xml', 'PRET_A')`,
 ];
 
-export const GET: APIRoute = async ({ locals }) => {
+export const GET: APIRoute = async ({ locals, url, redirect }) => {
   const d1 = locals.runtime.env.DB;
   let applied = 0;
   const skipped: string[] = [];
@@ -123,6 +123,9 @@ export const GET: APIRoute = async ({ locals }) => {
       }
     }
   }
+
+  const back = url.searchParams.get('redirect');
+  if (back && back.startsWith('/')) return redirect(back, 303);
 
   return json({
     ok: true,
