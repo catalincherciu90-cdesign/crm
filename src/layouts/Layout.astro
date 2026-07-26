@@ -71,33 +71,46 @@ const isActive = (href: string) =>
 
       <!-- Main -->
       <div class="flex min-w-0 flex-1 flex-col">
-        <!-- Header mobil (nume + logout) -->
-        <header class="no-print sticky top-0 z-20 flex items-center justify-between border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur sm:hidden">
+        <!-- Header mobil (nume + meniu hamburger) -->
+        <header class="no-print sticky top-0 z-30 flex items-center justify-between border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur sm:hidden">
           <a href="/" class="text-base font-bold text-slate-900">CRM<span class="text-indigo-600">.</span></a>
-          {user && (
-            <div class="flex items-center gap-2">
-              <span class="max-w-[40vw] truncate text-xs text-slate-400">{user.name || user.email}</span>
-              <form method="POST" action="/api/logout">
-                <button class="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-500">Ieși</button>
-              </form>
+          <details class="relative">
+            <summary class="flex cursor-pointer list-none items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 marker:hidden [&::-webkit-details-marker]:hidden">
+              <span class="text-base leading-none">☰</span> Meniu
+            </summary>
+            <div class="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-60 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
+              <nav class="p-2">
+                {nav.map((item) => (
+                  <a
+                    href={item.href}
+                    class={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium ${
+                      isActive(item.href) ? 'bg-indigo-50 text-indigo-700' : 'text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    <span>{item.icon}</span>
+                    {item.label}
+                  </a>
+                ))}
+              </nav>
+              {user && (
+                <div class="border-t border-slate-100 p-3">
+                  <div class="mb-2 truncate text-xs text-slate-500">
+                    {user.name || user.email}
+                    <span class="ml-1 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">{user.role === 'admin' ? 'Admin' : 'Agent'}</span>
+                  </div>
+                  <form method="POST" action="/api/logout">
+                    <button class="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-500 hover:bg-slate-50">Ieși din cont</button>
+                  </form>
+                </div>
+              )}
             </div>
-          )}
+          </details>
         </header>
 
-        <main class="flex-1 p-4 pb-24 sm:p-8 sm:pb-8">
+        <main class="flex-1 p-4 sm:p-8">
           <slot />
         </main>
       </div>
     </div>
-
-    <!-- Bara de navigatie (mobil) -->
-    <nav class="no-print fixed inset-x-0 bottom-0 z-30 grid border-t border-slate-200 bg-white/95 backdrop-blur sm:hidden" style={`grid-template-columns: repeat(${nav.length}, minmax(0, 1fr)); padding-bottom: env(safe-area-inset-bottom)`}>
-      {nav.map((item) => (
-        <a href={item.href} class={`flex flex-col items-center gap-0.5 py-2 text-[11px] font-medium transition ${isActive(item.href) ? 'text-indigo-700' : 'text-slate-500'}`}>
-          <span class="text-lg leading-none">{item.icon}</span>
-          {item.short}
-        </a>
-      ))}
-    </nav>
   </body>
 </html>
