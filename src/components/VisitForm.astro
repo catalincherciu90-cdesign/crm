@@ -14,13 +14,15 @@ interface Props {
   agents?: Pick<Agent, 'id' | 'name'>[];
   isAdmin?: boolean;
   preClientId?: number;
+  preDate?: string;
 }
-const { visit, clients, agents = [], isAdmin = false, preClientId } = Astro.props;
+const { visit, clients, agents = [], isAdmin = false, preClientId, preDate } = Astro.props;
 
 const field = 'mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500';
 const label = 'block text-xs font-medium text-slate-600';
 
 const today = new Date().toISOString().slice(0, 10);
+const initDate = visit?.date ?? preDate ?? today;
 const selClient = visit?.clientId ?? preClientId ?? '';
 const statuses: VisitStatus[] = ['planned', 'done', 'canceled'];
 
@@ -47,7 +49,7 @@ const addrMap = Object.fromEntries(clients.map((c) => [c.id, c.address ?? '']));
   <div class="grid gap-4 sm:grid-cols-2">
     <div>
       <label class={label} for="date">Data *</label>
-      <input class={field} id="date" name="date" type="date" required value={visit?.date ?? today} />
+      <input class={field} id="date" name="date" type="date" required value={initDate} />
     </div>
     <div>
       <label class={label} for="time">Ora</label>

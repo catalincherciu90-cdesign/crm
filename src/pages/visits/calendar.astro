@@ -1,0 +1,176 @@
+---
+import { eq, and, gte, lte, type SQL } from 'drizzle-orm';
+import Layout from '@/layouts/Layout.astro';
+import { getDb } from '@/db';
+import { visits, clients, agents } from '@/db/schema';
+import { agentColor, VISIT_STATUS_META, type VisitStatus } from '@/lib/visit';
+
+export const prerender = false;
+
+const db = getDb(Astro.locals.runtime.env.DB);
+const user = Astro.locals.user;
+const isAdmin = user?.role === 'admin';
+const ownAgentId = user?.agentId ?? -1;
+
+// Luna curenta (YYYY-MM) din query, altfel luna de azi
+const now = new Date();
+const curYm = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+const ym = (Astro.url.searchParams.get('month') || curYm).slice(0, 7);
+const [yy, mm] = ym.split('-').map(Number);
+const year = yy || now.getFullYear();
+const month = mm || now.getMonth() + 1; // 1-12
+
+const agentFilter = isAdmin ? Number(Astro.url.searchParams.get('agent')) || 0 : 0;
+
+// Grila: 6 saptamani incepand de luni
+function ymd(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+const first = new Date(year, month - 1, 1);
+const offset = (first.getDay() + 6) % 7; // 0 = luni
+const gridStart = new Date(year, month - 1, 1 - offset);
+const days: Date[] = Array.from({ length: 42 }, (_, i) => new Date(year, month - 1, 1 - offset + i));
+const gridStartStr = ymd(gridStart);
+const gridEndStr = ymd(days[41]);
+const todayStr = ymd(now);
+
+// Vizite din interval (in scope-ul userului)
+const conds: SQL[] = [gte(visits.date, gridStartStr), lte(visits.date, gridEndStr)];
+if (!isAdmin) conds.push(eq(visits.agentId, ownAgentId));
+if (agentFilter) conds.push(eq(visits.agentId, agentFilter));
+
+let rows: {
+  id: number; date: string; time: string | null; status: string; purpose: string;
+  clientName: string | null; agentId: number | null; agentName: string | null;
+}[] = [];
+try {
+  rows = await db
+    .select({
+      id: visits.id, date: visits.date, time: visits.time, status: visits.status, purpose: visits.purpose,
+      clientName: clients.name, agentId: visits.agentId, agentName: agents.name,
+    })
+    .from(visits)
+    .leftJoin(clients, eq(visits.clientId, clients.id))
+    .leftJoin(agents, eq(visits.agentId, agents.id))
+    .where(and(...conds));
+} catch {
+  /* tabela poate lipsi */
+}
+
+// Grupare pe zi
+const byDay = new Map<string, typeof rows>();
+for (const r of rows) {
+  const arr = byDay.get(r.date) ?? [];
+  arr.push(r);
+  byDay.set(r.date, arr);
+}
+for (const arr of byDay.values()) {
+  arr.sort((a, b) => (a.time ?? '99').localeCompare(b.time ?? '99'));
+}
+
+// Legenda agenti (din vizitele lunii)
+const legend = new Map<number, string>();
+for (const r of rows) if (r.agentId && r.agentName) legend.set(r.agentId, r.agentName);
+
+const agentList = isAdmin ? await db.select({ id: agents.id, name: agents.name }).from(agents).orderBy(agents.name) : [];
+
+// Navigare luni
+function monthUrl(y: number, m: number) {
+  const sp = new URLSearchParams();
+  sp.set('month', `${y}-${String(m).padStart(2, '0')}`);
+  if (agentFilter) sp.set('agent', String(agentFilter));
+  return `/visits/calendar?${sp.toString()}`;
+}
+const prev = month === 1 ? monthUrl(year - 1, 12) : monthUrl(year, month - 1);
+const next = month === 12 ? monthUrl(year + 1, 1) : monthUrl(year, month + 1);
+const monthLabel = first.toLocaleDateString('ro-RO', { month: 'long', year: 'numeric' });
+const weekDays = ['Lu', 'Ma', 'Mi', 'Jo', 'Vi', 'Sâ', 'Du'];
+---
+
+<Layout title="Calendar vizite">
+  <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
+    <div>
+      <h1 class="text-2xl font-bold text-slate-900">Calendar vizite</h1>
+      <p class="text-sm text-slate-500">{isAdmin ? 'Toate întâlnirile agenților.' : 'Vizitele mele.'}</p>
+    </div>
+    <div class="flex gap-2">
+      <a href="/visits" class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50">☰ Listă</a>
+      <a href="/visits/new" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">+ Programează</a>
+    </div>
+  </div>
+
+  <!-- Navigare luna + filtru agent -->
+  <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+    <div class="flex items-center gap-2">
+      <a href={prev} class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50">←</a>
+      <span class="min-w-40 text-center text-sm font-semibold capitalize text-slate-900">{monthLabel}</span>
+      <a href={next} class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50">→</a>
+      <a href={monthUrl(now.getFullYear(), now.getMonth() + 1)} class="ml-1 rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50">Azi</a>
+    </div>
+    {isAdmin && (
+      <form method="GET" action="/visits/calendar">
+        <input type="hidden" name="month" value={ym} />
+        <select name="agent" onchange="this.form.submit()" class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm">
+          <option value="">Toți agenții</option>
+          {agentList.map((a) => <option value={a.id} selected={agentFilter === a.id}>{a.name}</option>)}
+        </select>
+      </form>
+    )}
+  </div>
+
+  <!-- Legenda agenti -->
+  {isAdmin && legend.size > 0 && (
+    <div class="mb-3 flex flex-wrap gap-3">
+      {[...legend.entries()].map(([id, name]) => (
+        <span class="flex items-center gap-1.5 text-xs text-slate-600">
+          <span class={`inline-block h-2.5 w-2.5 rounded-full ${agentColor(id).dot}`}></span>{name}
+        </span>
+      ))}
+    </div>
+  )}
+
+  <!-- Calendar (scroll orizontal pe mobil) -->
+  <div class="overflow-x-auto">
+    <div class="min-w-[720px]">
+      <div class="grid grid-cols-7 gap-px rounded-t-xl bg-slate-200 text-center text-xs font-semibold uppercase tracking-wide text-slate-500">
+        {weekDays.map((d) => <div class="bg-slate-50 py-2">{d}</div>)}
+      </div>
+      <div class="grid grid-cols-7 gap-px rounded-b-xl bg-slate-200">
+        {days.map((d) => {
+          const ds = ymd(d);
+          const inMonth = d.getMonth() === month - 1;
+          const isToday = ds === todayStr;
+          const items = byDay.get(ds) ?? [];
+          return (
+            <div class={`min-h-24 bg-white p-1.5 ${inMonth ? '' : 'bg-slate-50/60'}`}>
+              <div class="mb-1 flex items-center justify-between">
+                <a href={`/visits/new?date=${ds}`} class={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs ${isToday ? 'bg-indigo-600 font-bold text-white' : inMonth ? 'text-slate-700 hover:bg-slate-100' : 'text-slate-300'}`} title="Programează în această zi">{d.getDate()}</a>
+              </div>
+              <div class="space-y-1">
+                {items.slice(0, 4).map((v) => {
+                  const col = agentColor(v.agentId);
+                  const done = v.status === 'done';
+                  const canceled = v.status === 'canceled';
+                  return (
+                    <a
+                      href={`/visits/${v.id}`}
+                      class={`block truncate rounded border px-1 py-0.5 text-[11px] leading-tight ${col.chip} ${canceled ? 'line-through opacity-50' : ''}`}
+                      title={`${v.time ? v.time + ' · ' : ''}${v.clientName ?? ''}${isAdmin && v.agentName ? ' · ' + v.agentName : ''} · ${VISIT_STATUS_META[v.status as VisitStatus].label}`}
+                    >
+                      {done ? '✅ ' : ''}{v.time ? `${v.time} ` : ''}{v.clientName ?? '—'}
+                    </a>
+                  );
+                })}
+                {items.length > 4 && (
+                  <a href={`/visits?view=all`} class="block px-1 text-[11px] text-slate-400 hover:text-indigo-600">+{items.length - 4} altele</a>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  </div>
+
+  <p class="mt-3 text-xs text-slate-400">💡 Apasă pe o zi pentru a programa o vizită, sau pe o vizită pentru detalii. Culoarea = agentul.</p>
+</Layout>
