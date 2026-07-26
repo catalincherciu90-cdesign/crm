@@ -10,10 +10,13 @@ import QuickFeedSync from '@/components/QuickFeedSync.tsx';
 const isAdmin = Astro.locals.user?.role === 'admin';
 
 // Sursa de feed pentru butonul de actualizare rapida (disponibil tuturor)
-let feedSource: { url: string; priceField: string; name: string } | null = null;
+let feedSource: { url: string; priceField: string; name: string; lastSyncAt: string | null; lastCount: number } | null = null;
 try {
   const [fs] = await getDb(Astro.locals.runtime.env.DB)
-    .select({ url: feedSources.url, priceField: feedSources.priceField, name: feedSources.name })
+    .select({
+      url: feedSources.url, priceField: feedSources.priceField, name: feedSources.name,
+      lastSyncAt: feedSources.lastSyncAt, lastCount: feedSources.lastCount,
+    })
     .from(feedSources)
     .limit(1);
   if (fs) feedSource = fs;
@@ -100,7 +103,16 @@ function buildUrl(params: Record<string, string | number | undefined>) {
 
   {feedSource && (
     <div class="mb-4 rounded-xl border border-emerald-200 bg-emerald-50/40 p-4">
-      <div class="mb-1 text-xs font-semibold uppercase tracking-wide text-emerald-700">Sincronizare feed</div>
+      <div class="mb-1 flex flex-wrap items-center justify-between gap-2">
+        <span class="text-xs font-semibold uppercase tracking-wide text-emerald-700">Sincronizare feed</span>
+        <span class="text-xs text-slate-500">
+          {feedSource.lastSyncAt ? (
+            <>Ultima actualizare: <time data-utc={feedSource.lastSyncAt} class="font-medium text-slate-700">{feedSource.lastSyncAt}</time> · {feedSource.lastCount} produse</>
+          ) : (
+            'Nesincronizat încă'
+          )}
+        </span>
+      </div>
       <QuickFeedSync client:load url={feedSource.url} priceField={feedSource.priceField} source={feedSource.name} />
       <p class="mt-2 text-xs text-slate-500">Descarcă feed-ul și actualizează prețuri, stoc și restul datelor (după SKU). Dacă descărcarea din URL nu merge, folosește „↓ Import feed" cu fișier.</p>
     </div>
@@ -199,3 +211,17 @@ function buildUrl(params: Record<string, string | number | undefined>) {
     💡 Produsele se importă din feed (Import feed). Filtrează pe categorii sau caută după nume/SKU/brand.
   </p>
 </Layout>
+
+<script is:inline>
+  // Afiseaza datele de sincronizare (stocate UTC) in ora locala
+  document.querySelectorAll('time[data-utc]').forEach((el) => {
+    const raw = el.getAttribute('data-utc');
+    if (!raw) return;
+    const d = new Date(raw.replace(' ', 'T') + 'Z');
+    if (!isNaN(d.getTime())) {
+      el.textContent = d.toLocaleString('ro-RO', {
+        day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
+      });
+    }
+  });
+</script>
