@@ -2,11 +2,26 @@
 import { asc, and, or, like, sql, type SQL } from 'drizzle-orm';
 import Layout from '@/layouts/Layout.astro';
 import { getDb } from '@/db';
-import { products } from '@/db/schema';
+import { products, feedSources } from '@/db/schema';
 import { formatMoney, formatQty } from '@/lib/money';
 import { proxied } from '@/lib/img';
+import QuickFeedSync from '@/components/QuickFeedSync.tsx';
 
 const isAdmin = Astro.locals.user?.role === 'admin';
+
+// Sursa de feed pentru butonul de actualizare rapida
+let feedSource: { url: string; priceField: string; name: string } | null = null;
+if (isAdmin) {
+  try {
+    const [fs] = await getDb(Astro.locals.runtime.env.DB)
+      .select({ url: feedSources.url, priceField: feedSources.priceField, name: feedSources.name })
+      .from(feedSources)
+      .limit(1);
+    if (fs) feedSource = fs;
+  } catch {
+    /* tabela poate lipsi */
+  }
+}
 
 export const prerender = false;
 
@@ -84,6 +99,14 @@ function buildUrl(params: Record<string, string | number | undefined>) {
       </div>
     )}
   </div>
+
+  {isAdmin && feedSource && (
+    <div class="mb-4 rounded-xl border border-emerald-200 bg-emerald-50/40 p-4">
+      <div class="mb-1 text-xs font-semibold uppercase tracking-wide text-emerald-700">Sincronizare feed</div>
+      <QuickFeedSync client:load url={feedSource.url} priceField={feedSource.priceField} source={feedSource.name} />
+      <p class="mt-2 text-xs text-slate-500">Descarcă feed-ul și actualizează prețuri, stoc și restul datelor (după SKU). Dacă descărcarea din URL nu merge, folosește „↓ Import feed" cu fișier.</p>
+    </div>
+  )}
 
   <!-- Cautare -->
   <form method="GET" action="/products" class="mb-4 flex gap-2">
