@@ -167,3 +167,26 @@ export type FeedSource = typeof feedSources.$inferSelect;
 export type NewFeedSource = typeof feedSources.$inferInsert;
 export type Agent = typeof agents.$inferSelect;
 export type NewAgent = typeof agents.$inferInsert;
+
+// ---------- Cheltuieli ----------
+export const expenses = sqliteTable(
+  'expenses',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    date: text('date')
+      .notNull()
+      .default(sql`(date('now'))`),
+    category: text('category').notNull().default('Altele'), // Combustibil, Transport, Cazare...
+    amount: real('amount').notNull().default(0), // RON
+    liters: real('liters'), // pentru combustibil (optional)
+    description: text('description'),
+    agentId: integer('agent_id').references(() => agents.id),
+    createdAt: text('created_at')
+      .notNull()
+      .default(sql`(datetime('now'))`),
+  },
+  (t) => [index('idx_expenses_agent').on(t.agentId), index('idx_expenses_date').on(t.date)],
+);
+
+export type Expense = typeof expenses.$inferSelect;
+export type NewExpense = typeof expenses.$inferInsert;

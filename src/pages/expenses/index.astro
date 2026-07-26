@@ -1,0 +1,151 @@
+---
+import { eq, and, desc, sql, type SQL } from 'drizzle-orm';
+import Layout from '@/layouts/Layout.astro';
+import { getDb } from '@/db';
+import { expenses, agents } from '@/db/schema';
+import { formatMoney } from '@/lib/money';
+import { EXPENSE_CATEGORIES, CATEGORY_ICON } from '@/lib/expense';
+
+export const prerender = false;
+
+const db = getDb(Astro.locals.runtime.env.DB);
+const user = Astro.locals.user;
+const isAdmin = user?.role === 'admin';
+const ownAgentId = user?.agentId ?? -1;
+
+const now = new Date();
+const curYm = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+const month = (Astro.url.searchParams.get('month') || curYm).slice(0, 7);
+const catFilter = Astro.url.searchParams.get('cat') || '';
+const agentFilter = isAdmin ? Number(Astro.url.searchParams.get('agent')) || 0 : 0;
+
+const conds: SQL[] = [sql`strftime('%Y-%m', ${expenses.date}) = ${month}`];
+if (catFilter) conds.push(eq(expenses.category, catFilter));
+if (agentFilter) conds.push(eq(expenses.agentId, agentFilter));
+if (!isAdmin) conds.push(eq(expenses.agentId, ownAgentId));
+const where = and(...conds);
+
+const rows = await db
+  .select({
+    id: expenses.id,
+    date: expenses.date,
+    category: expenses.category,
+    amount: expenses.amount,
+    liters: expenses.liters,
+    description: expenses.description,
+    agent: agents.name,
+  })
+  .from(expenses)
+  .leftJoin(agents, eq(expenses.agentId, agents.id))
+  .where(where)
+  .orderBy(desc(expenses.date), desc(expenses.id));
+
+const total = rows.reduce((s, r) => s + r.amount, 0);
+const fuel = rows.filter((r) => r.category === 'Combustibil');
+const fuelTotal = fuel.reduce((s, r) => s + r.amount, 0);
+const fuelLiters = fuel.reduce((s, r) => s + (r.liters ?? 0), 0);
+
+// defalcare pe categorii
+const byCat = new Map<string, number>();
+rows.forEach((r) => byCat.set(r.category, (byCat.get(r.category) ?? 0) + r.amount));
+const catBreakdown = [...byCat.entries()].sort((a, b) => b[1] - a[1]);
+
+const agentList = isAdmin ? await db.select({ id: agents.id, name: agents.name }).from(agents).orderBy(agents.name) : [];
+const monthLabel = new Date(month + '-01').toLocaleDateString('ro-RO', { month: 'long', year: 'numeric' });
+---
+
+<Layout title="Cheltuieli">
+  <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
+    <div>
+      <h1 class="text-2xl font-bold text-slate-900">Cheltuieli</h1>
+      <p class="text-sm text-slate-500 capitalize">{monthLabel}</p>
+    </div>
+    <a href="/expenses/new" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">+ Cheltuială nouă</a>
+  </div>
+
+  <!-- Sumar -->
+  <div class="mb-5 grid grid-cols-2 gap-4 lg:grid-cols-4">
+    <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div class="text-2xl">💸</div>
+      <div class="mt-2 text-xl font-bold text-slate-900">{formatMoney(total)}</div>
+      <div class="text-xs text-slate-500">Total luna</div>
+    </div>
+    <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div class="text-2xl">⛽</div>
+      <div class="mt-2 text-xl font-bold text-slate-900">{formatMoney(fuelTotal)}</div>
+      <div class="text-xs text-slate-500">Combustibil{fuelLiters > 0 ? ` · ${fuelLiters.toFixed(0)} L` : ''}</div>
+    </div>
+    <div class="col-span-2 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Pe categorii</div>
+      {catBreakdown.length === 0 ? (
+        <p class="text-sm text-slate-400">—</p>
+      ) : (
+        <ul class="space-y-1 text-sm">
+          {catBreakdown.slice(0, 4).map(([c, v]) => (
+            <li class="flex justify-between">
+              <span class="text-slate-600">{CATEGORY_ICON[c] ?? '•'} {c}</span>
+              <span class="font-medium text-slate-800">{formatMoney(v)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  </div>
+
+  <!-- Filtre -->
+  <form method="GET" action="/expenses" class="mb-4 flex flex-wrap gap-2">
+    <input type="month" name="month" value={month} class="rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+    <select name="cat" class="rounded-lg border border-slate-300 px-3 py-2 text-sm">
+      <option value="">Toate categoriile</option>
+      {EXPENSE_CATEGORIES.map((c) => <option value={c} selected={catFilter === c}>{c}</option>)}
+    </select>
+    {isAdmin && (
+      <select name="agent" class="rounded-lg border border-slate-300 px-3 py-2 text-sm">
+        <option value="">Toți agenții</option>
+        {agentList.map((a) => <option value={a.id} selected={agentFilter === a.id}>{a.name}</option>)}
+      </select>
+    )}
+    <button class="rounded-lg bg-slate-800 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-900">Filtrează</button>
+  </form>
+
+  <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+    {rows.length === 0 ? (
+      <p class="p-8 text-center text-sm text-slate-400">Nicio cheltuială în această lună. Adaugă prima.</p>
+    ) : (
+      <table class="w-full text-sm">
+        <thead class="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+          <tr>
+            <th class="px-4 py-3">Data</th>
+            <th class="px-4 py-3">Categorie</th>
+            <th class="hidden px-4 py-3 sm:table-cell">Descriere</th>
+            {isAdmin && <th class="hidden px-4 py-3 md:table-cell">Agent</th>}
+            <th class="px-4 py-3 text-right">Sumă</th>
+            <th class="px-4 py-3"></th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          {rows.map((r) => (
+            <tr class="hover:bg-slate-50">
+              <td class="px-4 py-3 whitespace-nowrap text-slate-600">{r.date}</td>
+              <td class="px-4 py-3">
+                <span class="font-medium text-slate-800">{CATEGORY_ICON[r.category] ?? '•'} {r.category}</span>
+                {r.liters ? <span class="ml-1 text-xs text-slate-400">{r.liters} L</span> : null}
+                <span class="mt-0.5 block text-xs font-normal text-slate-400 sm:hidden">{r.description ?? ''}{isAdmin && r.agent ? ` · ${r.agent}` : ''}</span>
+              </td>
+              <td class="hidden px-4 py-3 text-slate-600 sm:table-cell">{r.description ?? '—'}</td>
+              {isAdmin && <td class="hidden px-4 py-3 text-slate-600 md:table-cell">{r.agent ?? '—'}</td>}
+              <td class="px-4 py-3 text-right font-semibold text-slate-900">{formatMoney(r.amount)}</td>
+              <td class="px-4 py-3 text-right">
+                <form method="POST" action="/api/expenses" onsubmit="return confirm('Ștergi această cheltuială?')">
+                  <input type="hidden" name="delete" value="1" />
+                  <input type="hidden" name="id" value={r.id} />
+                  <button class="text-red-500 hover:text-red-700" title="Șterge">🗑</button>
+                </form>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    )}
+  </div>
+</Layout>
