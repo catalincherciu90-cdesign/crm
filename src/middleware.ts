@@ -18,12 +18,11 @@ const ADMIN_PREFIXES = [
   '/api/clients/delete',
   '/products/import',
   '/products/new',
-  '/api/products/import',
   '/api/products/import-images',
   '/api/products/delete',
-  '/api/feed',
   '/api/image-feed',
 ];
+// /api/feed si /api/products/import raman deschise: oricine poate actualiza preturi & stoc din feed
 // /api/setup ramane accesibil oricui e logat (DDL idempotent, sigur) ca sa poata repara schema
 
 function isAdminOnly(path: string, method: string): boolean {
