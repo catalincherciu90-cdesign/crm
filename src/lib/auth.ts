@@ -56,22 +56,26 @@ export async function verifyPassword(password: string, stored: string): Promise<
 
 /** Creeaza tabelele de auth daca lipsesc (bootstrap sigur, idempotent). */
 export async function ensureAuthTables(d1: D1Database): Promise<void> {
-  await d1
-    .prepare(
-      `CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT NOT NULL UNIQUE,
-        password_hash TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'agent',
-        agent_id INTEGER, name TEXT, active INTEGER NOT NULL DEFAULT 1,
-        created_at TEXT NOT NULL DEFAULT (datetime('now')))`,
-    )
-    .run();
-  await d1
-    .prepare(
-      `CREATE TABLE IF NOT EXISTS sessions (
-        token TEXT PRIMARY KEY, user_id INTEGER NOT NULL,
-        expires_at TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')))`,
-    )
-    .run();
+  try {
+    await d1
+      .prepare(
+        `CREATE TABLE IF NOT EXISTS users (
+          id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT NOT NULL UNIQUE,
+          password_hash TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'agent',
+          agent_id INTEGER, name TEXT, active INTEGER NOT NULL DEFAULT 1,
+          created_at TEXT NOT NULL DEFAULT (datetime('now')))`,
+      )
+      .run();
+    await d1
+      .prepare(
+        `CREATE TABLE IF NOT EXISTS sessions (
+          token TEXT PRIMARY KEY, user_id INTEGER NOT NULL,
+          expires_at TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')))`,
+      )
+      .run();
+  } catch {
+    /* exista deja / lipsa permisiuni - ignoram */
+  }
 }
 
 function nowSql(offsetDays = 0): string {

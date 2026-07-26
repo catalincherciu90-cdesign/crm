@@ -31,20 +31,29 @@ const [pipeline] = await db
 // Target lunar (pentru agentul logat)
 let myTarget = 0;
 let myAchieved = 0;
-if (!isAdmin && user?.agentId) {
-  const [a] = await db.select({ t: agents.monthlyTarget }).from(agents).where(eq(agents.id, user.agentId));
-  myTarget = a?.t ?? 0;
-  const [achv] = await db
-    .select({ v: sql<number>`coalesce(sum(total), 0)` })
-    .from(offers)
-    .where(sql`status = 'accepted' AND issue_date >= date('now','start of month') AND ${offerAgentSql}`);
-  myAchieved = achv.v;
+try {
+  if (!isAdmin && user?.agentId) {
+    const [a] = await db.select({ t: agents.monthlyTarget }).from(agents).where(eq(agents.id, user.agentId));
+    myTarget = a?.t ?? 0;
+    const [achv] = await db
+      .select({ v: sql<number>`coalesce(sum(total), 0)` })
+      .from(offers)
+      .where(sql`status = 'accepted' AND issue_date >= date('now','start of month') AND ${offerAgentSql}`);
+    myAchieved = achv.v;
+  }
+} catch {
+  /* coloane noi pot lipsi pana la /api/setup */
 }
 const myPct = myTarget > 0 ? Math.round((myAchieved / myTarget) * 100) : 0;
 const lunaCurenta = new Date().toLocaleDateString('ro-RO', { month: 'long', year: 'numeric' });
 
 // Istoric pe 6 luni: agentul vede al lui, adminul vede pe toata echipa
-const history = await monthlyRealized(db, isAdmin ? null : (user?.agentId ?? -1), 6);
+let history: Awaited<ReturnType<typeof monthlyRealized>> = [];
+try {
+  history = await monthlyRealized(db, isAdmin ? null : (user?.agentId ?? -1), 6);
+} catch {
+  /* ignora */
+}
 
 // Alerte parc auto: admin = tot parcul; agent = masina lui
 let vehicleAlerts: {
