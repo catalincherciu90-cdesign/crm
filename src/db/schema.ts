@@ -197,6 +197,30 @@ export const vehicles = sqliteTable(
 export type Vehicle = typeof vehicles.$inferSelect;
 export type NewVehicle = typeof vehicles.$inferInsert;
 
+// Istoric service / revizii
+export const serviceRecords = sqliteTable(
+  'service_records',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    vehicleId: integer('vehicle_id')
+      .notNull()
+      .references(() => vehicles.id, { onDelete: 'cascade' }),
+    date: text('date')
+      .notNull()
+      .default(sql`(date('now'))`),
+    odometer: real('odometer'),
+    cost: real('cost').notNull().default(0),
+    description: text('description'),
+    createdAt: text('created_at')
+      .notNull()
+      .default(sql`(datetime('now'))`),
+  },
+  (t) => [index('idx_service_vehicle').on(t.vehicleId)],
+);
+
+export type ServiceRecord = typeof serviceRecords.$inferSelect;
+export type NewServiceRecord = typeof serviceRecords.$inferInsert;
+
 // ---------- Cheltuieli ----------
 export const expenses = sqliteTable(
   'expenses',

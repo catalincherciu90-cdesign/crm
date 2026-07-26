@@ -1,10 +1,10 @@
 ---
-import { asc, eq, and, sql } from 'drizzle-orm';
+import { asc, eq, and, sql, desc } from 'drizzle-orm';
 import Layout from '@/layouts/Layout.astro';
 import VehicleForm from '@/components/VehicleForm.astro';
 import { getDb } from '@/db';
-import { vehicles, agents, expenses } from '@/db/schema';
-import { formatMoney } from '@/lib/money';
+import { vehicles, agents, expenses, serviceRecords } from '@/db/schema';
+import { formatMoney, formatQty } from '@/lib/money';
 import { docStatus } from '@/lib/fleet';
 
 export const prerender = false;
@@ -14,13 +14,31 @@ const db = getDb(Astro.locals.runtime.env.DB);
 const [vehicle] = await db.select().from(vehicles).where(eq(vehicles.id, id));
 if (!vehicle) return Astro.redirect('/fleet');
 
-const agentList = await db.select({ id: agents.id, name: agents.name }).from(agents).orderBy(asc(agents.name));
+const isAdmin = Astro.locals.user?.role === 'admin';
+const ownAgentId = Astro.locals.user?.agentId ?? -1;
+// Agentul poate deschide doar masina lui
+if (!isAdmin && vehicle.agentId !== ownAgentId) return Astro.redirect('/fleet');
 
-// Combustibil luna curenta pentru aceasta masina
+const agentList = isAdmin ? await db.select({ id: agents.id, name: agents.name }).from(agents).orderBy(asc(agents.name)) : [];
+
 const [fuel] = await db
   .select({ total: sql<number>`coalesce(sum(amount),0)`, liters: sql<number>`coalesce(sum(liters),0)`, n: sql<number>`count(*)` })
   .from(expenses)
   .where(and(eq(expenses.vehicleId, id), eq(expenses.category, 'Combustibil'), sql`strftime('%Y-%m', date) = strftime('%Y-%m','now')`));
+
+// Istoric service
+let service: { id: number; date: string; odometer: number | null; cost: number; description: string | null }[] = [];
+let serviceTotal = 0;
+try {
+  service = await db
+    .select({ id: serviceRecords.id, date: serviceRecords.date, odometer: serviceRecords.odometer, cost: serviceRecords.cost, description: serviceRecords.description })
+    .from(serviceRecords)
+    .where(eq(serviceRecords.vehicleId, id))
+    .orderBy(desc(serviceRecords.date), desc(serviceRecords.id));
+  serviceTotal = service.reduce((s, r) => s + r.cost, 0);
+} catch {
+  /* tabela poate lipsi inca */
+}
 
 const docs: [string, string | null][] = [
   ['ITP', vehicle.itpExpiry],
@@ -28,15 +46,16 @@ const docs: [string, string | null][] = [
   ['Rovinietă', vehicle.rovinietaExpiry],
   ['CASCO', vehicle.cascoExpiry],
 ];
+const today = new Date().toISOString().slice(0, 10);
+const fld = 'mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500';
 ---
 
 <Layout title={vehicle.plate}>
   <div class="mx-auto max-w-3xl">
-    <a href="/fleet" class="text-sm text-indigo-600 hover:underline">← Parc auto</a>
+    <a href="/fleet" class="text-sm text-indigo-600 hover:underline">← {isAdmin ? 'Parc auto' : 'Mașina mea'}</a>
     <h1 class="mt-2 text-2xl font-bold text-slate-900">{vehicle.plate}</h1>
-    <p class="mb-6 text-sm text-slate-500">{[vehicle.make, vehicle.model, vehicle.year].filter(Boolean).join(' ')}</p>
+    <p class="mb-6 text-sm text-slate-500">{[vehicle.make, vehicle.model, vehicle.year].filter(Boolean).join(' ')} · {formatQty(vehicle.odometer)} km</p>
 
-    <!-- Rezumat documente + combustibil -->
     <div class="mb-6 grid gap-4 sm:grid-cols-2">
       <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
         <h2 class="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Documente</h2>
@@ -59,21 +78,72 @@ const docs: [string, string | null][] = [
         <h2 class="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">⛽ Combustibil (luna curentă)</h2>
         <div class="text-2xl font-bold text-slate-900">{formatMoney(fuel.total)}</div>
         <p class="mt-1 text-sm text-slate-500">{fuel.liters > 0 ? `${fuel.liters.toFixed(0)} litri · ` : ''}{fuel.n} alimentări</p>
-        <a href="/expenses/new" class="mt-3 inline-block text-sm text-indigo-600 hover:underline">+ Adaugă cheltuială combustibil</a>
       </div>
     </div>
 
-    <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-      <h2 class="mb-4 font-semibold text-slate-900">Editează mașina</h2>
-      <VehicleForm vehicle={vehicle} agents={agentList} />
+    <!-- Istoric service -->
+    <div class="mb-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div class="mb-3 flex items-center justify-between">
+        <h2 class="font-semibold text-slate-900">🔧 Istoric service / revizii</h2>
+        <span class="text-sm text-slate-500">Total: <strong>{formatMoney(serviceTotal)}</strong></span>
+      </div>
+
+      {isAdmin && (
+        <form method="POST" action="/api/service" class="mb-4 grid gap-2 rounded-lg bg-slate-50 p-3 sm:grid-cols-5">
+          <input type="hidden" name="vehicleId" value={id} />
+          <input class={fld} name="date" type="date" value={today} title="Data" />
+          <input class={fld} name="odometer" type="number" placeholder="Km" title="Kilometraj" />
+          <input class={fld} name="cost" type="number" step="0.01" placeholder="Cost (RON)" required title="Cost" />
+          <input class={fld + ' sm:col-span-1'} name="description" placeholder="Descriere" title="Descriere" />
+          <button class="rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-700">Adaugă</button>
+        </form>
+      )}
+
+      {service.length === 0 ? (
+        <p class="text-sm text-slate-400">Nicio intrare de service încă.</p>
+      ) : (
+        <table class="w-full text-sm">
+          <thead class="text-left text-xs uppercase text-slate-400">
+            <tr><th class="py-1">Data</th><th class="py-1">Km</th><th class="py-1">Descriere</th><th class="py-1 text-right">Cost</th>{isAdmin && <th></th>}</tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            {service.map((r) => (
+              <tr>
+                <td class="py-2 whitespace-nowrap text-slate-600">{r.date}</td>
+                <td class="py-2 text-slate-500">{r.odometer ? formatQty(r.odometer) : '—'}</td>
+                <td class="py-2 text-slate-700">{r.description ?? '—'}</td>
+                <td class="py-2 text-right font-medium text-slate-900">{formatMoney(r.cost)}</td>
+                {isAdmin && (
+                  <td class="py-2 text-right">
+                    <form method="POST" action="/api/service" onsubmit="return confirm('Ștergi intrarea?')">
+                      <input type="hidden" name="delete" value="1" />
+                      <input type="hidden" name="id" value={r.id} />
+                      <input type="hidden" name="vehicleId" value={id} />
+                      <button class="text-red-500 hover:text-red-700">🗑</button>
+                    </form>
+                  </td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
     </div>
 
-    <div class="mt-4 flex justify-end">
-      <form method="POST" action="/api/vehicles" onsubmit={`return confirm('Ștergi mașina ${vehicle.plate}?')`}>
-        <input type="hidden" name="id" value={id} />
-        <input type="hidden" name="delete" value="1" />
-        <button type="submit" class="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-100">🗑 Șterge mașina</button>
-      </form>
-    </div>
+    {isAdmin && (
+      <>
+        <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 class="mb-4 font-semibold text-slate-900">Editează mașina</h2>
+          <VehicleForm vehicle={vehicle} agents={agentList} />
+        </div>
+        <div class="mt-4 flex justify-end">
+          <form method="POST" action="/api/vehicles" onsubmit={`return confirm('Ștergi mașina ${vehicle.plate}?')`}>
+            <input type="hidden" name="id" value={id} />
+            <input type="hidden" name="delete" value="1" />
+            <button type="submit" class="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-100">🗑 Șterge mașina</button>
+          </form>
+        </div>
+      </>
+    )}
   </div>
 </Layout>

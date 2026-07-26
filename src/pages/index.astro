@@ -2,10 +2,11 @@
 import { sql, desc, eq, lte, gt, and } from 'drizzle-orm';
 import Layout from '@/layouts/Layout.astro';
 import { getDb } from '@/db';
-import { clients, products, offers, agents } from '@/db/schema';
+import { clients, products, offers, agents, vehicles } from '@/db/schema';
 import { formatMoney, formatQty } from '@/lib/money';
 import MonthlyChart from '@/components/MonthlyChart.astro';
 import { monthlyRealized } from '@/lib/targets';
+import { docStatus, worstStatus } from '@/lib/fleet';
 
 export const prerender = false;
 
@@ -44,6 +45,36 @@ const lunaCurenta = new Date().toLocaleDateString('ro-RO', { month: 'long', year
 
 // Istoric pe 6 luni: agentul vede al lui, adminul vede pe toata echipa
 const history = await monthlyRealized(db, isAdmin ? null : (user?.agentId ?? -1), 6);
+
+// Alerte parc auto: admin = tot parcul; agent = masina lui
+let vehicleAlerts: {
+  id: number; plate: string; make: string | null; model: string | null; agent: string | null;
+  docs: { name: string; date: string | null }[]; worst: string;
+}[] = [];
+try {
+  const vrows = await db
+    .select({
+      id: vehicles.id, plate: vehicles.plate, make: vehicles.make, model: vehicles.model,
+      itp: vehicles.itpExpiry, rca: vehicles.rcaExpiry, rov: vehicles.rovinietaExpiry, casco: vehicles.cascoExpiry,
+      agent: agents.name,
+    })
+    .from(vehicles)
+    .leftJoin(agents, eq(vehicles.agentId, agents.id))
+    .where(isAdmin ? undefined : eq(vehicles.agentId, myAgentId));
+  vehicleAlerts = vrows
+    .map((v) => ({
+      id: v.id, plate: v.plate, make: v.make, model: v.model, agent: v.agent,
+      docs: [
+        { name: 'ITP', date: v.itp }, { name: 'RCA', date: v.rca },
+        { name: 'Rovinietă', date: v.rov }, { name: 'CASCO', date: v.casco },
+      ],
+      worst: worstStatus([v.itp, v.rca, v.rov, v.casco]),
+    }))
+    // adminul vede doar masinile cu probleme; agentul vede mereu masina lui
+    .filter((v) => (isAdmin ? v.worst === 'expired' || v.worst === 'soon' : true));
+} catch {
+  /* tabela vehicles poate lipsi inca */
+}
 
 const lowStock = await db
   .select()
@@ -121,6 +152,28 @@ const stats = [
       </div>
       <p class="mt-2 text-xs text-slate-400">Realizat = oferte acceptate luna aceasta. {myPct >= 100 ? 'Target atins! 🎉' : `Mai ai ${formatMoney(myTarget - myAchieved)} până la target.`}</p>
     </div>
+  )}
+
+  {vehicleAlerts.length > 0 && (
+    <section class="mt-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <h2 class="mb-3 font-semibold text-slate-900">{isAdmin ? '⚠️ Documente auto de reînnoit' : '🚗 Mașina mea'}</h2>
+      <ul class="divide-y divide-slate-100">
+        {vehicleAlerts.map((v) => (
+          <li class="flex flex-wrap items-center justify-between gap-2 py-3">
+            <div>
+              <a href={`/fleet/${v.id}`} class="font-semibold text-slate-900 hover:text-indigo-600">{v.plate}</a>
+              <span class="ml-2 text-xs text-slate-400">{[v.make, v.model].filter(Boolean).join(' ')}{isAdmin && v.agent ? ` · ${v.agent}` : ''}</span>
+            </div>
+            <div class="flex flex-wrap gap-1">
+              {v.docs.map((d) => {
+                const s = docStatus(d.date);
+                return <span class={`rounded px-1.5 py-0.5 text-[10px] font-medium ${s.cls}`}>{d.name}: {s.label}</span>;
+              })}
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
   )}
 
   <div class="mt-8 grid gap-6 lg:grid-cols-2">

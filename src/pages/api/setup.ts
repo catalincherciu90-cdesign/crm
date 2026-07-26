@@ -42,6 +42,11 @@ const STATEMENTS: string[] = [
     created_at TEXT NOT NULL DEFAULT (datetime('now')))`,
   `CREATE INDEX IF NOT EXISTS idx_vehicles_agent ON vehicles (agent_id)`,
   `ALTER TABLE expenses ADD COLUMN vehicle_id INTEGER REFERENCES vehicles (id)`,
+  `CREATE TABLE IF NOT EXISTS service_records (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, vehicle_id INTEGER NOT NULL, date TEXT NOT NULL DEFAULT (date('now')),
+    odometer REAL, cost REAL NOT NULL DEFAULT 0, description TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')))`,
+  `CREATE INDEX IF NOT EXISTS idx_service_vehicle ON service_records (vehicle_id)`,
 
   `CREATE TABLE IF NOT EXISTS products (
     id INTEGER PRIMARY KEY AUTOINCREMENT, sku TEXT NOT NULL UNIQUE, name TEXT NOT NULL,
