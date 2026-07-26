@@ -36,7 +36,7 @@ const statusClass: Record<string, string> = {
 ---
 
 <Layout title="Oferte">
-  <div class="mb-6 flex items-center justify-between">
+  <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
     <div>
       <h1 class="text-2xl font-bold text-slate-900">Oferte</h1>
       <p class="text-sm text-slate-500">{rows.length} oferte.</p>
@@ -52,9 +52,9 @@ const statusClass: Record<string, string> = {
         <thead class="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
           <tr>
             <th class="px-4 py-3">Număr</th>
-            <th class="px-4 py-3">Client</th>
-            <th class="px-4 py-3">Emisă</th>
-            <th class="px-4 py-3">Valabilă</th>
+            <th class="hidden px-4 py-3 sm:table-cell">Client</th>
+            <th class="hidden px-4 py-3 md:table-cell">Emisă</th>
+            <th class="hidden px-4 py-3 md:table-cell">Valabilă</th>
             <th class="px-4 py-3 text-right">Total</th>
             <th class="px-4 py-3">Status</th>
           </tr>
@@ -62,10 +62,13 @@ const statusClass: Record<string, string> = {
         <tbody class="divide-y divide-slate-100">
           {rows.map((o) => (
             <tr class="cursor-pointer hover:bg-slate-50" onclick={`location.href='/offers/${o.id}'`}>
-              <td class="px-4 py-3 font-medium text-indigo-700">{o.number}</td>
-              <td class="px-4 py-3 text-slate-700">{o.client ?? '—'}</td>
-              <td class="px-4 py-3 text-slate-500">{o.issueDate}</td>
-              <td class="px-4 py-3 text-slate-500">{o.validUntil ?? '—'}</td>
+              <td class="px-4 py-3 font-medium text-indigo-700">
+                {o.number}
+                <span class="mt-0.5 block text-xs font-normal text-slate-400 sm:hidden">{o.client ?? ''}</span>
+              </td>
+              <td class="hidden px-4 py-3 text-slate-700 sm:table-cell">{o.client ?? '—'}</td>
+              <td class="hidden px-4 py-3 text-slate-500 md:table-cell">{o.issueDate}</td>
+              <td class="hidden px-4 py-3 text-slate-500 md:table-cell">{o.validUntil ?? '—'}</td>
               <td class="px-4 py-3 text-right font-semibold text-slate-900">{formatMoney(o.total, o.currency)}</td>
               <td class="px-4 py-3"><span class={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${statusClass[o.status]}`}>{statusLabel[o.status]}</span></td>
             </tr>

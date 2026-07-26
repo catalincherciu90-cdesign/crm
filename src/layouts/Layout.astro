@@ -10,11 +10,11 @@ const user = Astro.locals.user;
 const isAdmin = user?.role === 'admin';
 
 const nav = [
-  { href: '/', label: 'Dashboard', icon: '📊' },
-  { href: '/offers', label: 'Oferte', icon: '📄' },
-  { href: '/products', label: 'Produse & Stocuri', icon: '📦' },
-  { href: '/clients', label: 'Clienti', icon: '👥' },
-  ...(isAdmin ? [{ href: '/agents', label: 'Agenti', icon: '🧑‍💼' }] : []),
+  { href: '/', label: 'Dashboard', short: 'Acasă', icon: '📊' },
+  { href: '/offers', label: 'Oferte', short: 'Oferte', icon: '📄' },
+  { href: '/products', label: 'Produse & Stocuri', short: 'Stoc', icon: '📦' },
+  { href: '/clients', label: 'Clienti', short: 'Clienți', icon: '👥' },
+  ...(isAdmin ? [{ href: '/agents', label: 'Agenti', short: 'Agenți', icon: '🧑‍💼' }] : []),
 ];
 
 const isActive = (href: string) =>
@@ -25,12 +25,13 @@ const isActive = (href: string) =>
 <html lang="ro">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#ffffff" />
     <title>{title} · CRM</title>
   </head>
   <body class="min-h-screen bg-slate-50 text-slate-800">
     <div class="flex min-h-screen">
-      <!-- Sidebar -->
+      <!-- Sidebar (desktop) -->
       <aside class="no-print hidden w-60 shrink-0 flex-col border-r border-slate-200 bg-white sm:flex">
         <div class="border-b border-slate-200 px-6 py-5">
           <a href="/" class="text-lg font-bold text-slate-900">CRM<span class="text-indigo-600">.</span></a>
@@ -41,9 +42,7 @@ const isActive = (href: string) =>
             <a
               href={item.href}
               class={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${
-                isActive(item.href)
-                  ? 'bg-indigo-50 text-indigo-700'
-                  : 'text-slate-600 hover:bg-slate-100'
+                isActive(item.href) ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-100'
               }`}
             >
               <span>{item.icon}</span>
@@ -65,21 +64,34 @@ const isActive = (href: string) =>
       </aside>
 
       <!-- Main -->
-      <div class="flex flex-1 flex-col">
-        <!-- Mobile nav -->
-        <header class="no-print flex items-center gap-4 overflow-x-auto border-b border-slate-200 bg-white px-4 py-3 sm:hidden">
+      <div class="flex min-w-0 flex-1 flex-col">
+        <!-- Header mobil (nume + logout) -->
+        <header class="no-print sticky top-0 z-20 flex items-center justify-between border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur sm:hidden">
           <a href="/" class="text-base font-bold text-slate-900">CRM<span class="text-indigo-600">.</span></a>
-          {nav.map((item) => (
-            <a href={item.href} class={`whitespace-nowrap text-sm ${isActive(item.href) ? 'text-indigo-700 font-semibold' : 'text-slate-500'}`}>
-              {item.label}
-            </a>
-          ))}
+          {user && (
+            <div class="flex items-center gap-2">
+              <span class="max-w-[40vw] truncate text-xs text-slate-400">{user.name || user.email}</span>
+              <form method="POST" action="/api/logout">
+                <button class="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-500">Ieși</button>
+              </form>
+            </div>
+          )}
         </header>
 
-        <main class="flex-1 p-4 sm:p-8">
+        <main class="flex-1 p-4 pb-24 sm:p-8 sm:pb-8">
           <slot />
         </main>
       </div>
     </div>
+
+    <!-- Bara de navigatie (mobil) -->
+    <nav class="no-print fixed inset-x-0 bottom-0 z-30 grid border-t border-slate-200 bg-white/95 backdrop-blur sm:hidden" style={`grid-template-columns: repeat(${nav.length}, minmax(0, 1fr)); padding-bottom: env(safe-area-inset-bottom)`}>
+      {nav.map((item) => (
+        <a href={item.href} class={`flex flex-col items-center gap-0.5 py-2 text-[11px] font-medium transition ${isActive(item.href) ? 'text-indigo-700' : 'text-slate-500'}`}>
+          <span class="text-lg leading-none">{item.icon}</span>
+          {item.short}
+        </a>
+      ))}
+    </nav>
   </body>
 </html>
