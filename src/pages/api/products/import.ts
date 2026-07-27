@@ -68,8 +68,11 @@ export const POST: APIRoute = async ({ request, locals }) => {
           stockQty: row.stockQty,
           brand: row.brand,
           barcode: row.barcode,
-          images: row.images,
-          files: row.files,
+          // Pozele vin dintr-un feed separat (CSV). Feed-ul de preturi/stoc are
+          // AddImages gol, deci NU suprascriem pozele daca nu aduce valoare noua
+          // (altfel actualizarea de preturi ar sterge pozele importate).
+          images: sql`COALESCE(NULLIF(excluded."images", ''), "products"."images")`,
+          files: sql`COALESCE(NULLIF(excluded."files", ''), "products"."files")`,
           externalId: row.externalId,
           source: row.source,
           updatedAt: now,
